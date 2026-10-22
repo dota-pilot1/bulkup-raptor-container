@@ -1,0 +1,259 @@
+/* 외부 UI 라이브러리 없이 쓰는 Header 스타일. 폐쇄망에서도 이 파일만 복사하면 된다. */
+.hd {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 56px;
+  padding: 0 14px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  font-family: inherit;
+}
+.hd.is-dense { height: 46px; gap: 10px; padding: 0 10px; }
+
+/* 스크롤 컨테이너 안에서 위에 붙는다. z-index가 없으면 본문 그림자에 파묻힌다. */
+.hd.is-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06), 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+/* 눈에서만 빼고 이름은 남기는 표준 방식. display:none이면 label 역할까지 사라진다. */
+.hd-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+/* 건너뛰기 링크. 평소엔 화면 위로 밀어 두고 초점을 받으면 내려온다.
+   display:none으로 숨기면 초점을 받을 수 없어 장치 자체가 무의미해진다. */
+.hd-skip {
+  position: absolute;
+  left: 12px;
+  top: 8px;
+  z-index: 40;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.15s ease;
+}
+.hd-skip:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid #0f172a;
+  outline-offset: 2px;
+}
+
+.hd-brand {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.hd-mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: #0f172a;
+}
+.hd-mark svg { width: 19px; height: 19px; }
+.hd.is-dense .hd-mark { width: 18px; height: 18px; }
+
+.hd-nav { min-width: 0; }
+.hd-list {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hd-link {
+  display: block;
+  padding: 7px 11px;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.hd-link:hover { color: #0f172a; }
+.hd.is-dense .hd-link { padding: 5px 9px; font-size: 12px; }
+
+/* 현재 페이지는 aria-current="page"가 진실이고, 표시는 그 속성을 따라간다.
+   배경을 칠하는 대신 밑줄 하나로 끝낸다. 항목이 6개를 넘으면 색 덩어리가 줄줄이 늘어서기 때문이다. */
+.hd-link[aria-current='page'] {
+  color: #0f172a;
+  font-weight: 800;
+  box-shadow: inset 0 -1.5px 0 #0f172a;
+  border-radius: 0;
+}
+
+/* 검색은 남는 자리를 가져가되, 좁아지면 먼저 줄어든다. */
+.hd-search {
+  position: relative;
+  display: flex;
+  flex: 1 1 200px;
+  min-width: 120px;
+  max-width: 380px;
+  align-items: center;
+}
+.hd-search-icon {
+  position: absolute;
+  left: 9px;
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  pointer-events: none;
+}
+.hd-search-icon svg { width: 15px; height: 15px; }
+
+.hd-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px 0 30px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+.hd-input::placeholder { color: #94a3b8; font-weight: 600; }
+.hd-input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+}
+.hd.is-dense .hd-input { height: 29px; font-size: 12px; }
+
+/* 검색이 없으면 액션이 오른쪽 끝에 붙어야 하므로 여기서 남는 자리를 밀어낸다. */
+.hd-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.hd-icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+.hd-icon-button svg { width: 18px; height: 18px; }
+.hd-icon-button:hover { background: #f1f5f9; color: #0f172a; }
+
+.hd-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 13px;
+  padding: 0 2px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 13px;
+}
+
+.hd-menu-wrap { position: relative; }
+
+.hd-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px 3px 3px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.hd-user:hover { background: #f8fafc; }
+.hd-avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.hd-user-text { display: grid; gap: 1px; text-align: left; }
+.hd-user-name { font-size: 12px; font-weight: 800; line-height: 1.1; }
+.hd-user-role { color: #64748b; font-size: 10px; font-weight: 700; line-height: 1.1; }
+/* 좁아지면 이름은 아바타만 남기고 접는다. 이름은 버튼의 title이 아니라 안의 텍스트가 쥐고 있다. */
+.hd.is-dense .hd-user-text { display: none; }
+
+.hd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  min-width: 168px;
+  padding: 5px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+}
+.hd-menu-item {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.hd-menu-item:hover { background: #f1f5f9; }
+.hd-menu-item.is-danger { color: #dc2626; }
+.hd-menu-item.is-danger:hover { background: #fef2f2; }
+
+/* 초점 표시는 마지막에 한 번만 정의해 어떤 요소든 같은 모양으로 보이게 한다. */
+.hd a:focus-visible,
+.hd button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hd-skip { transition: none; }
+}
+

@@ -1,0 +1,22 @@
+[package]
+name = "bulkup-raptor-tikitaka"
+version = "1.0.0"
+description = "Bulkup Raptor desktop ecommerce planning app"
+authors = ["CJ"]
+edition = "2021"
+
+[lib]
+name = "bulkup_raptor_tikitaka_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+serde_json = "1"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"

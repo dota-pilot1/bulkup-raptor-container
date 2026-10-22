@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-open-directory"
+description = "Allows the task board to open its selected Excel export folder."
+commands.allow = ["open_directory"]

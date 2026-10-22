@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bulkup.raptor.admin.infrastructure.mybatis.MemberQueryMapper">
+    <resultMap id="member" type="com.bulkup.raptor.admin.application.model.MemberSummary">
+        <constructor>
+            <idArg column="id" javaType="java.lang.Long" />
+            <arg column="email" javaType="java.lang.String" />
+            <arg column="name" javaType="java.lang.String" />
+            <arg column="status" javaType="com.bulkup.raptor.auth.domain.MemberStatus" />
+            <arg column="email_verified" javaType="_boolean" />
+            <arg column="created_at" javaType="java.time.Instant" />
+        </constructor>
+    </resultMap>
+
+    <resultMap id="statistics" type="com.bulkup.raptor.admin.application.model.MemberStatistics">
+        <constructor>
+            <arg column="total" javaType="_long" />
+            <arg column="active" javaType="_long" />
+            <arg column="pending" javaType="_long" />
+            <arg column="suspended" javaType="_long" />
+        </constructor>
+    </resultMap>
+
+    <!-- Shared WHERE keeps count and list conditions identical. Values use prepared parameters. -->
+    <sql id="searchConditions">
+        <where>
+            <if test="search.pattern != null">
+                (LOWER(m.name) LIKE #{search.pattern}
+                 OR LOWER(m.email) LIKE #{search.pattern})
+            </if>
+
+            <if test="search.status != null">
+                AND m.status = #{search.status}
+            </if>
+        </where>
+    </sql>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM members m
+        <include refid="searchConditions" />
+    </select>
+
+    <select id="findMembers" resultMap="member">
+        SELECT m.id, m.email, m.name, m.status, m.email_verified, m.created_at
+        FROM members m
+        <include refid="searchConditions" />
+        ORDER BY m.created_at DESC, m.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="findRoles" resultType="com.bulkup.raptor.admin.application.model.MemberRoleRow">
+        SELECT mr.member_id AS memberId, r.id, r.code, r.name
+        FROM member_roles mr JOIN roles r ON r.id = mr.role_id
+        WHERE mr.member_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY r.code, r.id
+    </select>
+
+    <!-- Whole-member statistics are independent from search and current page. -->
+    <select id="statistics" resultMap="statistics">
+        SELECT COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE status = 'ACTIVE') AS active,
+               COUNT(*) FILTER (WHERE status = 'PENDING') AS pending,
+               COUNT(*) FILTER (WHERE status = 'SUSPENDED') AS suspended
+        FROM members
+    </select>
+</mapper>

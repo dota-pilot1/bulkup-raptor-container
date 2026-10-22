@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>티키타카 노트앱 | 포트폴리오 소개</title>
+  <style>
+    :root {
+      font-family: Pretendard, "Apple SD Gothic Neo", system-ui, sans-serif;
+      color: #142238;
+      background: #f3f8ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      line-height: 1.7;
+      background: radial-gradient(circle at 85% 0, #d9edff 0, transparent 28rem), #f3f8ff;
+    }
+
+    main {
+      width: min(940px, calc(100% - 40px));
+      margin: 56px auto;
+      padding: clamp(28px, 6vw, 64px);
+      border: 1px solid #d8e6f5;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: 0 24px 60px rgba(40, 85, 134, .12);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: #e5f2ff;
+      color: #0877cf;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .05em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 7vw, 56px);
+      line-height: 1.2;
+      letter-spacing: -.05em;
+    }
+
+    .lead {
+      max-width: 700px;
+      margin: 20px 0 0;
+      color: #52647b;
+      font-size: clamp(16px, 2vw, 19px);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 36px 0;
+    }
+
+    .flow div {
+      padding: 18px 12px;
+      border: 1px solid #d9e8f7;
+      border-radius: 14px;
+      background: #f8fbff;
+      color: #176ca8;
+      font-size: 14px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    section {
+      padding: 28px 0;
+      border-top: 1px solid #e4edf6;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: -.03em;
+    }
+
+    p { margin: 0; color: #516278; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .card {
+      padding: 18px;
+      border: 1px solid #dfeaf5;
+      border-radius: 14px;
+      background: #fbfdff;
+    }
+
+    .card strong { display: block; margin-bottom: 5px; }
+    .card span { color: #687a90; font-size: 14px; }
+
+    .stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .stack span {
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: #eaf5ff;
+      color: #176ca8;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .links {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    a.button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 15px 18px;
+      border: 1px solid #cfe3f7;
+      border-radius: 13px;
+      color: #075f9f;
+      background: #f7fbff;
+      text-decoration: none;
+      font-weight: 800;
+      transition: transform .16s ease, background .16s ease;
+    }
+
+    a.button:hover {
+      transform: translateY(-2px);
+      background: #eaf5ff;
+    }
+
+    .button small { color: #718198; font-weight: 650; }
+
+    footer {
+      margin-top: 28px;
+      color: #77879a;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      main { width: min(100% - 24px, 940px); margin: 18px auto; border-radius: 20px; }
+      .flow, .grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div class="eyebrow">PORTFOLIO · DESKTOP LEARNING NOTE</div>
+    <h1>티키타카 노트앱</h1>
+    <p class="lead">학습과 개발을 5:5로 연결하는 AI Agent 기반 개발 노트 앱입니다. 작은 할 일을 실제 구현과 검증으로 이어가고, 리뷰 결과를 다음 작업에 다시 쓸 수 있는 지식으로 축적합니다.</p>
+
+    <div class="flow" aria-label="핵심 작업 흐름">
+      <div>01 · 할 일</div>
+      <div>02 · 구현</div>
+      <div>03 · 리뷰</div>
+      <div>04 · 노트</div>
+    </div>
+
+    <section>
+      <h2>프로토타입 소개</h2>
+      <p>목표와 완료 기준을 가진 할 일을 만들고, 선택한 API·작업 경로·세부 계획을 Agent에게 구현 지시로 전달합니다. 구현 후에는 코드 리뷰와 테스트 근거를 남기며, 검증된 설계와 해결 경험을 계층형 노트로 정리합니다.</p>
+      <div class="grid">
+        <div class="card">
+          <strong>학습과 개발의 연결</strong>
+          <span>기본기, 언어, 프레임워크, 메이저 스펙과 실제 기능 개발을 하나의 루프로 운영합니다.</span>
+        </div>
+        <div class="card">
+          <strong>기술 부채까지 관리</strong>
+          <span>리뷰에서 확인한 개선점과 선택의 이유를 다음 작업의 기준으로 재사용합니다.</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>기술 구성</h2>
+      <p>Tauri 데스크톱 패키징 위에 Next.js Full-stack과 SQLite를 결합해 화면·기능·학습 데이터를 하나의 앱으로 다룹니다. 로컬에서 빠르게 시작하고, 배포와 공유도 간단하게 가져갈 수 있습니다.</p>
+      <div class="stack" aria-label="기술 스택">
+        <span>Tauri</span>
+        <span>Next.js Full-stack</span>
+        <span>SQLite</span>
+        <span>AI Agent Workflow</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>포트폴리오 자료</h2>
+      <div class="links">
+        <a class="button" href="https://github.com/dota-pilot1/pkt-study-fullstack#readme" target="_blank" rel="noreferrer">
+          <span>GitHub README</span><small>프로젝트 구조와 사용 방법 ↗</small>
+        </a>
+        <a class="button" href="https://docs.google.com/document/d/1RtsX8acSSK7OfEwUgphGwzDGVlbLczguZwUdvKWMNgA/edit?usp=sharing" target="_blank" rel="noreferrer">
+          <span>소개 문서</span><small>작업 흐름과 실제 화면 ↗</small>
+        </a>
+        <a class="button" href="https://github.com/dota-pilot1/pkt-study-fullstack/releases/latest" target="_blank" rel="noreferrer">
+          <span>최신 릴리즈</span><small>데스크톱 앱 다운로드 ↗</small>
+        </a>
+      </div>
+    </section>
+
+    <footer>티키타카 노트앱 · Learning × Development</footer>
+  </main>
+</body>
+
+</html>

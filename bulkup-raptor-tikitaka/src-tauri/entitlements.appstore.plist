@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Mac App Store applications must opt into the App Sandbox. -->
+  <key>com.apple.security.app-sandbox</key>
+  <true/>
+  <key>com.apple.application-identifier</key>
+  <string>5PRM3RRTSH.com.cj.pkt.study.fullstack</string>
+  <key>com.apple.developer.team-identifier</key>
+  <string>5PRM3RRTSH</string>
+
+  <!-- The packaged Next.js server uses a loopback connection only. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <key>com.apple.security.network.server</key>
+  <true/>
+
+  <!-- Voice input records from the microphone. -->
+  <key>com.apple.security.device.microphone</key>
+  <true/>
+
+  <!-- Export is initiated through a user-selected directory dialog. -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+
+  <!-- The bundled Node.js sidecar requires JavaScript JIT execution. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+</dict>
+</plist>

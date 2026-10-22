@@ -1,0 +1,14 @@
+/* 외부 UI 라이브러리 없이 쓰는 Breadcrumb 스타일. Light 테마를 기본으로 한다. */
+.breadcrumb { width: 100%; color: #64748b; font-family: inherit; }
+.breadcrumb ol { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.breadcrumb li { display: inline-flex; min-width: 0; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+.breadcrumb a { overflow: hidden; color: #64748b; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumb a:hover { color: #1d4ed8; text-decoration: underline; text-underline-offset: 3px; }
+.breadcrumb li:last-child > span[aria-current='page'] { overflow: hidden; color: #0f172a; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumb-separator { flex: 0 0 auto; color: #cbd5e1; font-weight: 500; }
+.breadcrumb-ellipsis { color: #94a3b8; }
+.breadcrumb a:focus-visible,
+.breadcrumb li:last-child > span[aria-current='page']:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; border-radius: 3px; }
+.breadcrumb-compact ol { gap: 6px; }
+.breadcrumb-compact li { gap: 6px; font-size: 12px; }
+.breadcrumb-compact .breadcrumb-separator { margin: 0 1px; }

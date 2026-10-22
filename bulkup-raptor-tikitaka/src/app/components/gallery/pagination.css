@@ -1,0 +1,14 @@
+/* 외부 UI 라이브러리 없이 쓰는 Pagination 스타일. Light 테마를 기본으로 한다. */
+.pagination { display: inline-flex; align-items: center; gap: 4px; color: #475569; font-family: inherit; }
+.pagination > button,
+.pagination ol button { display: grid; place-items: center; min-width: 32px; height: 32px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #475569; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.pagination > button:hover:not(:disabled),
+.pagination ol button:hover { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+.pagination button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.pagination button:disabled { background: #f8fafc; color: #cbd5e1; cursor: not-allowed; }
+.pagination ol { display: flex; align-items: center; gap: 4px; margin: 0 2px; padding: 0; list-style: none; }
+.pagination ol button[aria-current='page'] { border-color: #1d4ed8; background: #1d4ed8; color: #fff; }
+.pagination ol span { display: grid; min-width: 22px; height: 32px; place-items: center; color: #94a3b8; }
+.pagination-compact { gap: 2px; }
+.pagination-compact > button, .pagination-compact ol button { min-width: 28px; height: 28px; font-size: 12px; }
+.pagination-compact ol { gap: 2px; }

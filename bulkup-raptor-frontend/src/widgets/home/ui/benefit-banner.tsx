@@ -1,0 +1,3 @@
+export function BenefitBanner() {
+  return <section className="mt-20 grid gap-4 sm:grid-cols-3"><div className="rounded-2xl bg-zinc-950 p-6 text-white"><p className="text-lg font-semibold">첫 구매 혜택</p><p className="mt-2 text-sm text-zinc-400">신규 회원 가입 시 3,000원 할인</p></div><div className="rounded-2xl bg-[#f1eadb] p-6 text-zinc-950"><p className="text-lg font-semibold">무료 배송</p><p className="mt-2 text-sm text-zinc-600">5만원 이상 구매 시 무료 배송</p></div><div className="rounded-2xl bg-[#e8f3ed] p-6 text-zinc-950"><p className="text-lg font-semibold">빠른 상담</p><p className="mt-2 text-sm text-zinc-600">궁금한 점은 언제든 문의하세요</p></div></section>;
+}

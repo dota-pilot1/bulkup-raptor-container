@@ -1,0 +1,74 @@
+name: PKT Study Fullstack Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Windows 설치 파일을 추가할 기존 Release 태그 (예: v0.1.22)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pkt-study-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-upload-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Verify release version
+        shell: bash
+        run: |
+          APP_VERSION="v$(node -p "require('./package.json').version")"
+          TAURI_VERSION="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [ "${{ inputs.release_tag }}" != "$APP_VERSION" ] || [ "${{ inputs.release_tag }}" != "$TAURI_VERSION" ]; then
+            echo "::error::Release tag and app versions do not match."
+            exit 1
+          fi
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build and upload Windows installer
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          tagName: ${{ inputs.release_tag }}
+          releaseName: "PKT Study Fullstack ${{ inputs.release_tag }}"
+          releaseBody: "macOS는 로컬에서 직접 빌드·공증하고, Windows NSIS 설치 파일은 수동 Actions 작업으로 추가합니다."
+          releaseDraft: false
+          prerelease: false
+          args: "--bundles nsis"
+
+      - name: Publish updater metadata
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/publish-updater-json.mjs --release-tag "${{ inputs.release_tag }}" --output "$RUNNER_TEMP/latest.json"
+          gh release upload "${{ inputs.release_tag }}" "$RUNNER_TEMP/latest.json" --clobber

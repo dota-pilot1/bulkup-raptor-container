@@ -1,0 +1,15 @@
+{
+  "bundle": {
+    "category": "Productivity",
+    "icon": ["icons/icon.icns"],
+    "createUpdaterArtifacts": false,
+    "targets": ["app"],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "entitlements": "entitlements.appstore.plist",
+      "files": {
+        "embedded.provisionprofile": "appstore/embedded.provisionprofile"
+      }
+    }
+  }
+}

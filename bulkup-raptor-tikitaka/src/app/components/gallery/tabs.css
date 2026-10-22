@@ -1,0 +1,43 @@
+/* 외부 UI 라이브러리 없이 쓰는 Tabs 스타일. Light 테마를 기본으로 한다. */
+.tabs { width: 100%; color: #0f172a; font-family: inherit; }
+.tabs-list { display: flex; gap: 4px; border-bottom: 1px solid #e2e8f0; }
+.tabs-list button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.tabs-list button:hover { color: #1e293b; background: #f8fafc; }
+.tabs-list button[aria-selected='true'] { color: #2563eb; }
+.tabs-list button[aria-selected='true']::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: #2563eb;
+  content: '';
+}
+.tabs-list button:disabled { color: #cbd5e1; cursor: not-allowed; }
+.tabs-list button:focus-visible,
+.tabs-panel:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+.tabs-count { min-width: 18px; padding: 2px 5px; border-radius: 999px; background: #eff6ff; color: #2563eb; font-size: 11px; line-height: 1; text-align: center; }
+.tabs-panel { min-height: 88px; padding: 18px 4px; color: #475569; font-size: 13px; line-height: 1.7; }
+
+.tabs-pill .tabs-list { padding: 4px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+.tabs-pill .tabs-list button { flex: 1 1 0; justify-content: center; border-radius: 7px; }
+.tabs-pill .tabs-list button[aria-selected='true'] { background: #1d4ed8; color: #fff; box-shadow: 0 2px 5px rgba(29, 78, 216, 0.28); }
+.tabs-pill .tabs-list button[aria-selected='true']::after { display: none; }
+
+.tabs-dense .tabs-list button { padding: 8px 11px; font-size: 12px; }
+.tabs-dense .tabs-panel { min-height: 64px; padding: 12px 4px; }
+
+@media (prefers-reduced-motion: reduce) { .tabs-list button { transition: none; } }

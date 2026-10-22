@@ -1,0 +1,82 @@
+name: PKT Study Fullstack macOS Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "macOS 산출물을 추가할 기존 Release 태그"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pkt-study-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-upload-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Verify release version
+        shell: bash
+        run: |
+          APP_VERSION="v$(node -p "require('./package.json').version")"
+          TAURI_VERSION="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [ "${{ inputs.release_tag }}" != "$APP_VERSION" ] || [ "${{ inputs.release_tag }}" != "$TAURI_VERSION" ]; then
+            echo "::error::Release tag and app versions do not match."
+            exit 1
+          fi
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Import Apple signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Build and upload macOS updater artifacts
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          tagName: ${{ inputs.release_tag }}
+          releaseName: "PKT Study Fullstack ${{ inputs.release_tag }}"
+          releaseBody: "macOS DMG 및 updater 산출물 추가"
+          releaseDraft: false
+          prerelease: false
+          # DMG는 설치용, app은 Tauri updater용 .app.tar.gz/.sig 생성을 위해 함께 빌드한다.
+          args: "--bundles dmg,app"
+
+      - name: Publish updater metadata
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/publish-updater-json.mjs --release-tag "${{ inputs.release_tag }}" --output "$RUNNER_TEMP/latest.json"
+          gh release upload "${{ inputs.release_tag }}" "$RUNNER_TEMP/latest.json" --clobber

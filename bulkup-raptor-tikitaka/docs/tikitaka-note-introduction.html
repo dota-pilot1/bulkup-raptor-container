@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>티키타카 개발 노트 소개</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Pretendard, "Apple SD Gothic Neo", system-ui, sans-serif;
+      color: #172033;
+      background: #f5f8fc;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      line-height: 1.75;
+      background: radial-gradient(circle at 90% 0, #e5f2ff, transparent 30rem), #f5f8fc;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    .layout {
+      width: min(1220px, calc(100% - 40px));
+      margin: 36px auto 64px;
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    aside {
+      position: sticky;
+      top: 24px;
+      padding: 20px 16px;
+      background: rgba(255, 255, 255, .94);
+      border: 1px solid #dce5f0;
+      border-radius: 20px;
+      box-shadow: 0 14px 38px rgba(31, 65, 114, .08);
+    }
+
+    .brand {
+      padding: 2px 8px 16px;
+      border-bottom: 1px solid #e8eef5;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .brand small {
+      color: #7b899c;
+      font-size: 11px;
+    }
+
+    nav {
+      display: grid;
+      gap: 3px;
+      margin-top: 14px;
+    }
+
+    nav a {
+      padding: 8px 10px;
+      border-radius: 9px;
+      color: #65758a;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    nav a:hover,
+    nav a.active {
+      color: #0877cf;
+      background: #eaf4ff;
+    }
+
+    .nav-help {
+      margin: 15px 6px 0;
+      padding-top: 13px;
+      border-top: 1px solid #e8eef5;
+      color: #8a97a8;
+      font-size: 11px;
+    }
+
+    main {
+      min-width: 0;
+      padding: 48px;
+      background: #fff;
+      border: 1px solid #dce5f0;
+      border-radius: 24px;
+      box-shadow: 0 18px 50px rgba(31, 65, 114, .10);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      margin: 0 0 14px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: #e7f1ff;
+      color: #0877cf;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 42px);
+      line-height: 1.25;
+      letter-spacing: -.045em;
+    }
+
+    .lead {
+      margin: 20px 0 36px;
+      font-size: 18px;
+      color: #526176;
+    }
+
+    section,
+    header,
+    footer {
+      scroll-margin-top: 28px;
+    }
+
+    section {
+      padding: 30px 0;
+      border-top: 1px solid #e8eef5;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 21px;
+      letter-spacing: -.03em;
+    }
+
+    p {
+      margin: 0;
+      color: #4c5c71;
+    }
+
+    p+p {
+      margin-top: 14px;
+    }
+
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .principle {
+      padding: 17px;
+      border: 1px solid #dfe8f2;
+      border-radius: 14px;
+      background: #fafcff;
+    }
+
+    .principle strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #172033;
+    }
+
+    .principle span {
+      font-size: 14px;
+      color: #637289;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .workflow div {
+      padding: 14px 12px;
+      border: 1px solid #dce8f3;
+      border-radius: 12px;
+      background: #f7fbff;
+      color: #24658f;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .tags span {
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: #edf6ff;
+      color: #2070a4;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .screens {
+      display: grid;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    figure {
+      margin: 0;
+      border: 1px solid #dce5f0;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 10px 26px rgba(31, 65, 114, .07);
+    }
+
+    .shot-link {
+      position: relative;
+      display: block;
+      padding: 12px;
+      background: #0c1520;
+      text-decoration: none;
+    }
+
+    .shot-link::after {
+      content: "크게 보기 ↗";
+      position: absolute;
+      right: 24px;
+      bottom: 24px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(14, 31, 49, .82);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: .2s ease;
+    }
+
+    .shot-link:hover::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .shot {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 9px;
+      background: #fff;
+    }
+
+    .screen {
+      min-height: 175px;
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      background: #f7f9fc;
+      font-size: 11px;
+    }
+
+    .screen-menu {
+      padding: 16px 10px;
+      background: #25384d;
+      color: #dce7f2;
+    }
+
+    .screen-menu strong {
+      display: block;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .screen-menu span {
+      display: block;
+      margin: 7px 0;
+      padding: 5px;
+      border-radius: 5px;
+    }
+
+    .screen-menu .on {
+      background: #167dc1;
+      color: #fff;
+    }
+
+    .screen-body {
+      padding: 17px;
+      min-width: 0;
+    }
+
+    .screen-title {
+      margin-bottom: 10px;
+      color: #20344b;
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .mock-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-top: 7px;
+      padding: 9px 10px;
+      border: 1px solid #dfe6ee;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .mock-pill {
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #e6f3ff;
+      color: #0877cf;
+    }
+
+    .mock-code {
+      margin-top: 8px;
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: #172536;
+      color: #bde0fa;
+      font: 10px/1.5 ui-monospace, monospace;
+    }
+
+    figcaption {
+      padding: 13px 16px 15px;
+      color: #68778b;
+      font-size: 13px;
+    }
+
+    figcaption strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #21364e;
+      font-size: 15px;
+    }
+
+    .shot-kicker {
+      display: inline-block;
+      margin-right: 6px;
+      color: #0877cf;
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .05em;
+    }
+
+    .stack {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .stack div {
+      padding: 16px;
+      border: 1px solid #d8e8f6;
+      border-radius: 13px;
+      background: #f5faff;
+      text-align: center;
+    }
+
+    .stack strong {
+      display: block;
+      color: #0877cf;
+    }
+
+    .stack span {
+      color: #74849a;
+      font-size: 12px;
+    }
+
+    footer {
+      margin-top: 12px;
+      padding-top: 22px;
+      border-top: 1px solid #e8eef5;
+      color: #0877cf;
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    @media (max-width: 880px) {
+      .layout {
+        width: min(100% - 24px, 860px);
+        margin-top: 12px;
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        padding: 9px;
+        border-radius: 13px;
+      }
+
+      .brand,
+      .nav-help {
+        display: none;
+      }
+
+      nav {
+        display: flex;
+        margin: 0;
+        overflow-x: auto;
+      }
+
+      nav a {
+        flex: 0 0 auto;
+      }
+    }
+
+    @media (max-width: 620px) {
+      main {
+        padding: 28px 22px;
+        border-radius: 18px;
+      }
+
+      .principles,
+      .workflow,
+      .stack {
+        grid-template-columns: 1fr;
+      }
+
+      .screen {
+        grid-template-columns: 92px 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <aside aria-label="페이지 목차">
+      <div class="brand"><strong>티키타카 개발 노트</strong><small>Learning × Development</small></div>
+      <nav>
+        <a href="#intro">앱 소개</a><a href="#workflow">작업 순환 구조</a><a href="#value">프로젝트 가치</a><a href="#learning">학습
+          범위</a><a href="#screens">실제 활용 화면</a><a href="#distribution">배포와 공유</a><a href="#knowledge">기술 베이스</a><a
+          href="#future">확장 방향</a>
+      </nav>
+      <p class="nav-help">목록을 선택하면 원하는 설명으로 바로 이동합니다.</p>
+    </aside>
+    <main>
+      <header id="intro">
+        <p class="eyebrow">TIKITAKA DEVELOPMENT NOTE</p>
+        <h1>학습과 개발의 티키타카를<br />지속 가능한 팀의 역량으로 연결합니다.</h1>
+        <p class="lead">티키타카 개발 노트는 사람과 Agent가 함께 배우고, 만들고, 되돌아보는 바이브 코딩 기반의 학습 노트 앱입니다. 코드를 빠르게 만드는 데서 멈추지 않고, 학습과 개발을
+          5:5 피프티 피프티로 동등하게 가져가며 경험을 다음 작업의 지식으로 축적합니다.</p>
+      </header>
+
+      <section id="workflow">
+        <h2>할 일 → 구현 → 리뷰 → 노트 정리</h2>
+        <p>업데이트된 할 일 관리를 시작점으로 목표·범위·완료 기준을 정하고, Agent에게 구체적인 구현 지시를 전달해 개발과 검증을 진행합니다. 이어서 완료 계획과 통과 조건을 바탕으로 코드를 리뷰하고, 확인한 개선점과 새로 배운 내용을 다시 노트로 정리해 다음 학습과 개발의
+          출발점으로 만듭니다.</p>
+        <div class="workflow">
+          <div>1. 할 일 정의</div>
+          <div>2. 구현 지시·검증</div>
+          <div>3. 코드 리뷰</div>
+          <div>4. 노트 정리</div>
+        </div>
+      </section>
+
+      <section id="value">
+        <h2>기록을 실제 개발에 다시 쓰는 앱입니다</h2>
+        <p>이 프로젝트의 가치는 노트를 보관하는 데 있지 않습니다. 문제와 데이터 흐름을 정리해 도메인을 설계하고, 화면과 기능을 프로토타입으로 확인하며, 그 과정에서 만든 지식을 다음 개발에 다시 사용하는
+          데 있습니다.</p>
+        <div class="principles">
+          <div class="principle"><strong>Agent와 함께 편집</strong><span>문서 구조와 작성 예제를 API로 전달해 같은 맥락과 형식으로 노트를
+              작성·수정합니다.</span></div>
+          <div class="principle"><strong>설계와 프로토타이핑 연결</strong><span>문제·사용자·데이터·업무 흐름을 정리한 뒤 실제 화면과 기능으로 빠르게
+              검증합니다.</span></div>
+          <div class="principle"><strong>개발 자산 재사용</strong><span>검증된 프롬프트, 공통 컴포넌트, UI/UX 자료와 구현 패턴을 다음 작업에
+              활용합니다.</span></div>
+          <div class="principle"><strong>검색 가능한 작업 기억</strong><span>흩어지기 쉬운 학습 내용과 과거의 결정, 오류 해결 기록을 필요한 순간 다시
+              찾습니다.</span></div>
+        </div>
+      </section>
+
+      <section id="learning">
+        <h2>기본기부터 기술 부채 해결까지</h2>
+        <p>기본기 강화, 언어와 프레임워크 학습, 메이저 스펙의 이해와 적용, 기술 부채 해결을 하나의 성장 범위로 다룹니다. 새 기능을 만드는 속도와 기반을 탄탄히 다지는 시간을 함께 쌓아, 오래 유지할
+          수 있는 개발 역량을 만듭니다.</p>
+        <div class="tags"><span>기본기 강화</span><span>언어</span><span>프레임워크</span><span>메이저 스펙</span><span>기술 부채 해결</span>
+        </div>
+      </section>
+
+      <section id="screens">
+        <h2>할 일·구현·리뷰·노트가 한 흐름으로 이어집니다</h2>
+        <p>아래는 실제 티키타카 개발 노트에서 SKT Nova 프로토타입을 실행하고 지식으로 남기는 순서입니다. 이미지를 선택하면 원본 크기로 자세히 확인할 수 있습니다.</p>
+        <div class="screens">
+          <figure>
+            <a class="shot-link" href="assets/tikitaka-todo-management.png" target="_blank" rel="noreferrer">
+              <img class="shot" src="assets/tikitaka-todo-management.png" alt="Backend, Frontend, DevOps, Policy 작업과 진행률을 관리하는 티키타카 할 일 화면" width="1800" height="1105" />
+            </a>
+            <figcaption>
+              <strong><span class="shot-kicker">01 · TODO</span>목표와 완료 기준을 실행 가능한 할 일로 정의</strong>
+              Backend·Frontend·DevOps·Policy별 작업 수와 전체 완료율을 확인하고, 상태·중요도·체크리스트·API 연결 여부를 관리합니다. 무엇을 왜 만들어야 하는지 먼저 명확히 합니다.
+            </figcaption>
+          </figure>
+
+          <figure>
+            <a class="shot-link" href="assets/tikitaka-implementation-instruction.png" target="_blank" rel="noreferrer">
+              <img class="shot" src="assets/tikitaka-implementation-instruction.png" alt="TODO API와 작업 대상 폴더를 선택해 Codex에 전달할 구현 지시를 만드는 티키타카 화면" width="1800" height="1105" loading="lazy" />
+            </a>
+            <figcaption>
+              <strong><span class="shot-kicker">02 · IMPLEMENT</span>for Agent로 구현 범위와 API를 정확히 전달</strong>
+              선택한 TODO의 상태·세부 계획·검증 조건 API와 백엔드·프론트 작업 폴더를 하나의 구현 지시로 만듭니다. Agent는 이 지시를 따라 구현하고 진행 상태와 검증 근거를 다시 기록합니다.
+            </figcaption>
+          </figure>
+
+          <figure>
+            <a class="shot-link" href="assets/tikitaka-code-review.png" target="_blank" rel="noreferrer">
+              <img class="shot" src="assets/tikitaka-code-review.png" alt="완료 세부 계획과 통과 조건을 선택해 Codex 코드 리뷰 요청을 만드는 티키타카 리뷰 화면" width="1800" height="1105" loading="lazy" />
+            </a>
+            <figcaption>
+              <strong><span class="shot-kicker">03 · REVIEW</span>완료 기준과 검증 근거를 담아 Codex 리뷰로 연결</strong>
+              구현이 끝난 세부 계획과 통과 조건을 선택하면 백엔드·프론트 작업 경로, API 계약, 페이지네이션 조건과 테스트 근거가 포함된 리뷰 요청을 생성합니다.
+            </figcaption>
+          </figure>
+
+          <figure>
+            <a class="shot-link" href="assets/tikitaka-note-structure.png" target="_blank" rel="noreferrer">
+              <img class="shot" src="assets/tikitaka-note-structure.png" alt="NOVA BSS 프로토타입의 요금제 API 설계 및 코드 리뷰 문서를 계층형으로 정리한 티키타카 노트 화면" width="1800" height="1105" loading="lazy" />
+            </a>
+            <figcaption>
+              <strong><span class="shot-kicker">04 · NOTE</span>구현과 리뷰의 맥락을 재사용 가능한 노트로 정리</strong>
+              NOVA BSS 프로토타입 아래에 요금제 API 설계, 백엔드 구현과 세부 코드 리뷰를 1차 메뉴 → 2차 주제 → 본문·하위 문서 구조로 연결합니다. 정리된 지식은 다음 할 일의 출발점이 됩니다.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="distribution">
+        <h2>가볍게 배포하고, 쉽게 공유합니다</h2>
+        <p>티키타카 개발 노트는 Tauri 기반 데스크톱 앱으로, Next.js 풀스택과 SQLite를 함께 사용합니다. 별도의 복잡한 서버 환경 없이도 필요한 기능과 학습 데이터를 하나의 앱으로 배포하고
+          공유하기 쉬워, 개인 학습부터 팀의 프로토타입까지 빠르게 시작할 수 있습니다.</p>
+        <div class="stack">
+          <div><strong>Tauri</strong><span>가벼운 데스크톱 패키징</span></div>
+          <div><strong>Next.js Full-stack</strong><span>화면과 기능을 한 프로젝트에서</span></div>
+          <div><strong>SQLite</strong><span>데이터까지 간편하게 이동</span></div>
+        </div>
+      </section>
+
+      <section id="knowledge">
+        <h2>작은 실행을 팀의 살아있는 기술 베이스로</h2>
+        <p>작업을 작게 나누고 빠르게 검증하며, 코드·컨벤션·API 규칙·컴포넌트 사용법·디버깅 경험을 노트로 남깁니다. 축적된 문서는 Agent도 반복해서 참조하는 살아있는 기술 베이스가 되어, 복잡한
+          구현과 리팩터링, 문서화, 테스트를 더 자신 있게 진행하게 합니다.</p>
+        <div class="principles">
+          <div class="principle"><strong>학습 · 개발 5:5</strong><span>만드는 일과 배우는 일을 동등한 루프로 운영합니다.</span></div>
+          <div class="principle"><strong>부분 구현 · 빠른 검증</strong><span>작업을 작게 쪼개고 확인하며 다음 단계로 연결합니다.</span></div>
+          <div class="principle"><strong>리뷰 기반 지식화</strong><span>개선점과 선택의 이유를 다음 작업에 다시 씁니다.</span></div>
+          <div class="principle"><strong>기술 부채까지 해결</strong><span>기능 개발과 함께 오래 남은 문제도 꾸준히 줄입니다.</span></div>
+        </div>
+      </section>
+
+      <section id="future">
+        <h2>개발 지식 정보 시스템으로 확장합니다</h2>
+        <p>앞으로는 MCP와 RAG를 연결해 작업과 관련된 노트를 자동으로 찾고, 팀에서 검증한 규칙과 구현 사례를 Agent가 근거로 활용하도록 확장할 계획입니다. 신규 개발자는 프로젝트의 구조와 맥락을
+          빠르게 이해하고, 기존 개발자는 과거의 결정과 해결 사례를 다시 활용할 수 있는 개발 지식 정보 시스템을 지향합니다.</p>
+      </section>
+
+      <footer>티키타카 개발 노트 = AI 시대에 학습과 개발의 방식을 함께 설계하는 전술 전략 노트</footer>
+    </main>
+  </div>
+  <script>
+    const links = [...document.querySelectorAll('nav a')];
+    const targets = links.map((link) => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+
+    const updateActiveLink = () => {
+      const current = [...targets].reverse().find((target) => target.getBoundingClientRect().top <= 170) || targets[0];
+      links.forEach((link) => link.classList.toggle('active', link.hash === `#${current.id}`));
+    };
+
+    const scrollToTarget = (target, behavior = 'smooth') => {
+      document.body.style.paddingBottom = '0px';
+
+      requestAnimationFrame(() => {
+        const targetTop = window.scrollY + target.getBoundingClientRect().top - 28;
+        const pageHeight = document.documentElement.scrollHeight;
+        const requiredSpace = Math.max(0, targetTop + window.innerHeight - pageHeight + 36);
+
+        document.body.style.paddingBottom = `${requiredSpace}px`;
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: targetTop, behavior });
+          links.forEach((link) => link.classList.toggle('active', link.hash === `#${target.id}`));
+        });
+      });
+    };
+
+    links.forEach((link) => {
+      link.addEventListener('click', (event) => {
+        const target = document.querySelector(link.hash);
+        if (!target) return;
+
+        event.preventDefault();
+        history.pushState(null, '', link.hash);
+        scrollToTarget(target);
+      });
+    });
+
+    window.addEventListener('scroll', updateActiveLink, { passive: true });
+    window.addEventListener('hashchange', () => {
+      const target = document.querySelector(location.hash);
+      if (target) scrollToTarget(target);
+    });
+
+    updateActiveLink();
+
+    if (location.hash) {
+      const initialTarget = document.querySelector(location.hash);
+      if (initialTarget) scrollToTarget(initialTarget, 'auto');
+    }
+
+    window.addEventListener('load', () => {
+      const target = location.hash && document.querySelector(location.hash);
+      if (target) scrollToTarget(target, 'auto');
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,22 @@
+/* 외부 UI 라이브러리 없이 쓰는 Badge 스타일. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+.badge-sm { padding: 4px 9px; font-size: 11px; }
+.badge-md { padding: 6px 11px; font-size: 12px; }
+
+.badge-neutral { background: #e2e8f0; color: #334155; }
+.badge-info    { background: #dbeafe; color: #1d4ed8; }
+.badge-success { background: #d1fae5; color: #047857; }
+.badge-warning { background: #fef3c7; color: #b45309; }
+.badge-danger  { background: #fee2e2; color: #b91c1c; }
+
+.badge-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+

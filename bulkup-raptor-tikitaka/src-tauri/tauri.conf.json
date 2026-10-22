@@ -1,0 +1,61 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Bulkup Raptor",
+  "version": "1.0.0",
+  "identifier": "com.bulkup.raptor.tikitaka",
+  "build": {
+    "beforeDevCommand": "node scripts/prepare-tauri-dev.mjs && npm run dev",
+    "devUrl": "http://localhost:4300",
+    "beforeBuildCommand": "npm run build:tauri",
+    "beforeBundleCommand": "node scripts/sign-tauri-native-macos.mjs",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Bulkup Raptor",
+        "width": 1280,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 700,
+        "fullscreen": false,
+        "resizable": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": -100,
+          "y": 0
+        },
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": [
+      "app",
+      "dmg",
+      "nsis"
+    ],
+    "macOS": {
+      "entitlements": "entitlements.plist"
+    },
+    "externalBin": [
+      "binaries/node"
+    ],
+    "resources": {
+      "../dist/next/": "next"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRFOEZCODVFN0ExM0RGQwpSV1Q4UGFIbmhmdm9CT2l2ZHd5dkxuTUFDcllCZ3R3SENEZFJSUk56NnFFUmdtU2RSdzVoZDJjNAo="
+    }
+  }
+}

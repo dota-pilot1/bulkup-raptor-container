@@ -1,0 +1,595 @@
+@import "tailwindcss";
+
+/* Tauri WebView는 브라우저처럼 body 높이를 자동으로 계산하지 않으므로
+   셸이 화면 높이를 온전히 사용하고, 각 페이지의 내부 스크롤을 받도록 한다. */
+html,
+body,
+#root {
+  height: 100%;
+  min-height: 0;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Semantic 테마 토큰 — 참조앱(tc-dx-mybatis)의 체계를 병원 브랜드색으로 미러링.
+   직원 콘솔(로그인 / 튼튼척 노트)이 참조한다.
+   raw 팔레트 색을 직접 쓰지 않고 항상 이 토큰을 거친다.
+   ────────────────────────────────────────────────────────────── */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+
+  --color-brand-primary: var(--primary);
+  --color-brand-glass: color-mix(in srgb, var(--primary) 10%, transparent);
+  --color-brand-border: color-mix(in srgb, var(--primary) 30%, transparent);
+
+  --color-text-primary: var(--foreground);
+  --color-text-secondary: var(--muted-foreground);
+  --color-text-muted: oklch(0.6 0 0);
+  --color-text-on-brand: var(--primary-foreground);
+
+  --color-surface-muted: var(--muted);
+  --color-surface-raised: var(--card);
+  --color-surface-strong: var(--background);
+  --color-surface-border: var(--border);
+  --color-surface-border-soft: color-mix(in srgb, var(--border) 65%, transparent);
+}
+
+.http-method-get {
+  border-color: #bfdbfe !important;
+  background-color: #dbeafe !important;
+  color: #1d4ed8 !important;
+}
+
+.http-method-post {
+  border-color: #a7f3d0 !important;
+  background-color: #d1fae5 !important;
+  color: #047857 !important;
+}
+
+.http-method-patch {
+  border-color: #fde68a !important;
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+}
+
+.http-method-put {
+  border-color: #ddd6fe !important;
+  background-color: #ede9fe !important;
+  color: #6d28d9 !important;
+}
+
+select.http-method-delete,
+.http-method-delete {
+  border-color: #fecaca !important;
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+}
+
+
+:root {
+  --radius: 0.25rem;
+
+  --background: oklch(0.985 0.002 240);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+
+  /* 병원 브랜드 = 키오스크 화면의 #1976d2 계열 블루 */
+  --primary: oklch(0.55 0.16 250);
+  --primary-foreground: oklch(0.985 0 0);
+  /* Bulkup Raptor 메뉴 레일은 본문 브랜드색과 구분되는 민트 계열을 사용한다. */
+  --rail-primary: oklch(0.48 0.12 174);
+  --rail-primary-deep: oklch(0.34 0.09 174);
+  --muted: oklch(0.975 0.004 240);
+  --muted-foreground: oklch(0.45 0 0);
+  --destructive: oklch(0.6 0.15 25);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.87 0.008 240);
+}
+
+@layer utilities {
+  .refresh-icon-spin {
+    animation: refreshIconSpin 650ms cubic-bezier(0.4, 0, 0.2, 1) 1;
+  }
+
+  .ui-panel {
+    @apply rounded-md border border-surface-border bg-surface-raised shadow-[0_1px_3px_rgba(0,0,0,0.05)];
+  }
+
+  .ui-panel-soft {
+    @apply rounded-md border border-surface-border-soft bg-surface-raised;
+  }
+
+  .ui-input {
+    @apply w-full h-10 rounded-md border border-surface-border bg-background px-3 text-[14px] transition-all
+           focus:border-brand-border focus:ring-2 focus:ring-brand-border/20 outline-none disabled:opacity-60;
+  }
+
+  .ui-icon-button {
+    @apply flex items-center justify-center rounded-md border border-surface-border bg-surface-raised
+           text-text-primary transition-all hover:bg-surface-muted active:scale-[0.98];
+  }
+
+  .ui-icon-button-brand {
+    @apply flex items-center justify-center rounded-md border border-brand-primary bg-brand-primary
+           text-text-on-brand transition-all hover:brightness-110 active:scale-[0.98];
+  }
+
+  .ui-icon-button-danger {
+    @apply flex items-center justify-center rounded-md border border-destructive bg-destructive
+           text-destructive-foreground transition-all hover:brightness-110 active:scale-[0.98];
+  }
+
+  .drawer-action-group {
+    padding: 3px;
+    border: 1px solid var(--surface-border-soft);
+    border-radius: 10px;
+    background: var(--surface-muted);
+  }
+  .drawer-action-group .ui-icon-button {
+    border-color: transparent;
+    background: transparent;
+  }
+  .drawer-action-group .ui-icon-button:hover {
+    border-color: var(--surface-border);
+    background: var(--surface-raised);
+  }
+  .drawer-action-group-danger {
+    border-color: color-mix(in srgb, var(--destructive) 18%, var(--surface-border-soft));
+    background: color-mix(in srgb, var(--destructive) 4%, var(--surface-muted));
+  }
+}
+
+@keyframes refreshIconSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@layer components {
+  /* Lexical applies these classes to token spans at runtime. Keep the
+     palette in ordinary CSS so highlighting also works in the packaged
+     Tauri WebView, where Tailwind cannot see runtime-generated class names. */
+  /* VS Code 계열의 대비를 내되, 일반 문서 본문과 충돌하지 않도록 코드 토큰에만 적용한다. */
+  .editor-token-comment, .editor-token-cdata, .editor-token-doctype,
+  .editor-token-prolog { color: #6b7280; font-style: italic; }
+  .editor-token-keyword, .editor-token-atrule, .editor-token-important { color: #7c3aed; font-weight: 700; }
+  .editor-token-string, .editor-token-char, .editor-token-regex,
+  .editor-token-attr, .editor-token-selector { color: #15803d; }
+  .editor-token-function, .editor-token-method { color: #2563eb; }
+  .editor-token-class, .editor-token-class-name, .editor-token-builtin,
+  .editor-token-type { color: #0369a1; }
+  .editor-token-property, .editor-token-constant, .editor-token-variable { color: #b45309; }
+  .editor-token-number, .editor-token-boolean { color: #c2410c; }
+  .editor-token-operator, .editor-token-punctuation, .editor-token-namespace { color: #475569; }
+  .editor-token-tag, .editor-token-symbol, .editor-token-entity,
+  .editor-token-url { color: #be185d; }
+  .editor-token-inserted { color: #15803d; }
+  .editor-token-deleted { color: #b91c1c; text-decoration: line-through; }
+
+  .lexical-editor-readonly code[data-language="mermaid"],
+  .lexical-editor-readonly code[data-language="mmd"] { display: none; }
+  /* 본문은 흰색으로 고정하고, 포커스 시에는 배경색이 변하지 않게 한다. */
+  .lexical-editor-content,
+  .lexical-editor-input,
+  .lexical-editor-input:focus { background-color: #fff !important; }
+  /* 편집기는 문서가 길어져도 바깥 레이아웃을 밀어내지 않고 내부에서 스크롤한다. */
+  .lexical-editor-frame {
+    display: flex;
+    min-height: 360px;
+    height: min(720px, calc(100vh - 11rem));
+    min-width: 0;
+    overflow: hidden;
+  }
+  .lexical-editor-frame .lexical-editor-content { min-height: 0; }
+  .lexical-editor-input {
+    padding: 1.5rem !important;
+    caret-color: var(--primary);
+  }
+  /* 읽기 전용 문서에서도 코드 원문은 마우스로 드래그해 선택·복사할 수 있어야 한다. */
+  .lexical-editor-input,
+  .lexical-editor-input code,
+  .lexical-editor-input code * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+  [data-code-copy-button] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .lexical-editor-input:focus { box-shadow: none; }
+
+  /* 읽기 드로워도 편집기와 같은 문서 리듬을 사용한다. */
+  .drawer-document-content .lexical-editor-input {
+    padding: 1.5rem !important;
+    font-size: 15px;
+    line-height: 1.75;
+  }
+  .drawer-document-content .lexical-editor-input p {
+    margin: 0;
+    line-height: 1.75;
+  }
+  .drawer-document-content .lexical-editor-input h1,
+  .drawer-document-content .lexical-editor-input h2,
+  .drawer-document-content .lexical-editor-input h3 {
+    margin-top: 0 !important;
+    margin-bottom: 0.5rem !important;
+    padding-top: 0;
+    line-height: 1.35;
+  }
+  .drawer-document-content .lexical-editor-input h1:first-child,
+  .drawer-document-content .lexical-editor-input h2:first-child,
+  .drawer-document-content .lexical-editor-input h3:first-child {
+    margin-top: 0;
+  }
+  .drawer-document-content .lexical-editor-input pre,
+  .drawer-document-content .lexical-editor-input code {
+    line-height: 1.65;
+  }
+  .drawer-document-content .lexical-editor-input pre {
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .drawer-document-scroll > section {
+    margin-top: 2rem;
+  }
+  /* 블로그형 인용 블록: 기본 왼쪽 세로선 대신 파스텔 배경과 인용 부호로 구분한다. */
+  .lexical-editor-input blockquote {
+    position: relative;
+    margin: 0 0 0.5rem !important;
+    padding: 0.625rem 1.25rem !important;
+    border: 1px solid #dbeafe;
+    border-left: 1px solid #dbeafe;
+    border-radius: 0.75rem;
+    background: #eff6ff;
+    color: #475569;
+    font-style: normal;
+  }
+  /* 편집 화면에서도 quote의 Tailwind my-2 기본 여백보다 작은 고정 간격을 사용한다. */
+  .lexical-editor-frame .lexical-editor-input > blockquote {
+    margin-block-start: 0 !important;
+    margin-block-end: 0 !important;
+    padding-block: 0.625rem !important;
+  }
+  /* 최상위 섹션은 노드 종류별 기본 margin을 제거하고 동일한 리듬으로 배치한다. */
+  .lexical-editor-input > h1,
+  .lexical-editor-input > h2,
+  .lexical-editor-input > h3,
+  .lexical-editor-input > blockquote,
+  .lexical-editor-input > code,
+  .lexical-editor-input > p {
+    margin-block-start: 0 !important;
+  }
+  .lexical-editor-input > h1,
+  .lexical-editor-input > h2,
+  .lexical-editor-input > h3 {
+    margin-block-end: 0.5rem !important;
+  }
+  /* 블록 사이에 커서가 들어갈 수 없는 장식용 빈 공간을 만들지 않는다.
+     섹션 구분은 heading·quote·code 블록 자체의 모양으로만 표현한다. */
+  .lexical-editor-input > h1,
+  .lexical-editor-input > h2,
+  .lexical-editor-input > h3 {
+    margin-block-start: 0 !important;
+  }
+  /* 문서 첫 블록은 카드 상단 여백으로 충분하므로 위 간격을 넣지 않는다. */
+  .lexical-editor-input > h1:first-child,
+  .lexical-editor-input > h2:first-child,
+  .lexical-editor-input > h3:first-child {
+    margin-block-start: 0 !important;
+  }
+  .lexical-editor-input > blockquote { margin-block-end: 0 !important; }
+  .lexical-editor-input > code[data-language],
+  .lexical-editor-input > code[data-highlight-language] {
+    margin-block-start: 0.25rem !important;
+    margin-block-end: 0.75rem !important;
+  }
+  /* 파일:·코드: 라벨은 앞 요소가 quote인지 경로 code인지와 관계없이 같은 리듬을 사용한다. */
+  .drawer-document-content .lexical-editor-input > blockquote + p:has(+ code[data-language]),
+  .drawer-document-content .lexical-editor-input > blockquote + p:has(+ code[data-highlight-language]),
+  .drawer-document-content .lexical-editor-input > code[data-language] + p:has(+ code[data-language]),
+  .drawer-document-content .lexical-editor-input > code[data-language] + p:has(+ code[data-highlight-language]),
+  .drawer-document-content .lexical-editor-input > code[data-highlight-language] + p:has(+ code[data-language]),
+  .drawer-document-content .lexical-editor-input > code[data-highlight-language] + p:has(+ code[data-highlight-language]) {
+    margin-block-start: 1rem !important;
+    margin-block-end: 0.5rem !important;
+  }
+  /* Lexical 버전에 따라 code language data 속성이 달라도 파일·코드 라벨의 리듬을 동일하게 유지한다. */
+  .drawer-document-content .lexical-editor-input > :is(code, pre) + p:has(+ :is(code, pre)),
+  .drawer-document-content .lexical-editor-input > blockquote + p:has(+ :is(code, pre)) {
+    margin-block-start: 0.75rem !important;
+    margin-block-end: 0.5rem !important;
+  }
+  .drawer-document-content .lexical-editor-input > p:has(+ :is(code, pre)) {
+    margin-block-start: 0.5rem !important;
+    margin-block-end: 0.5rem !important;
+  }
+  .lexical-editor-input > blockquote > p,
+  .lexical-editor-input > blockquote > ul,
+  .lexical-editor-input > blockquote > ol {
+    margin-block-start: 0 !important;
+    margin-block-end: 0 !important;
+  }
+  .lexical-editor-input > blockquote > p + ul,
+  .lexical-editor-input > blockquote > p + ol {
+    margin-block-start: 0.5rem !important;
+  }
+  /* 인용문 안 마지막 문단의 기본 하단 마진이 카드 여백과 겹치지 않게 한다. */
+  .lexical-editor-input blockquote > p:last-child,
+  .lexical-editor-input blockquote > ul:last-child,
+  .lexical-editor-input blockquote > ol:last-child {
+    margin-bottom: 0 !important;
+  }
+  .lexical-editor-input blockquote::before {
+    content: none;
+  }
+  /* 섹션 제목은 배경 없는 제목으로 두고, 본문·목록·코드 블록과 시각적 역할을 분리한다. */
+  .lexical-editor-input h2 {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  /* 문단은 카드가 아니라 본문으로 유지한다. 목록/문단을 섹션 제목과 혼동하지 않게 한다. */
+  .lexical-editor-input p {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+  /* 메모장처럼 모든 paragraph의 상자 규칙을 고정한다.
+     Enter가 만든 빈 문단도 일반 문단과 같은 한 줄 높이와 0 마진을 가진다. */
+  .lexical-editor-input > p {
+    min-height: 1.75rem;
+    margin: 0 !important;
+  }
+  .lexical-editor-input ol,
+  .lexical-editor-input ul {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+  }
+  .lexical-editor-input li {
+    margin-bottom: 0.15rem;
+  }
+  /* Enter가 만든 빈 문단도 일반 paragraph와 같은 규칙을 쓴다. */
+  /* 코드 블록 뒤에는 코드 자체의 기본 하단 margin과 빈 paragraph 간격을 겹치지 않는다. */
+  .lexical-editor-input > code[data-language],
+  .lexical-editor-input > code[data-highlight-language] {
+    margin-bottom: 0 !important;
+  }
+  /* Next/Turbopack는 CSS Custom Highlight 의 ::highlight()를 아직 파싱하지 못한다.
+     검색 범위 계산은 그대로 유지하고 강조색은 브라우저 호환 경로에서 처리한다. */
+  .lexical-toolbar { background: color-mix(in srgb, var(--muted) 72%, var(--card)); }
+  .lexical-mermaid-preview { @apply my-3 overflow-auto rounded-md border border-surface-border-soft bg-surface-muted p-4 text-sm text-text-primary; position: relative; }
+  .lexical-mermaid-preview-flat { margin: 0; border: 0; background: transparent; padding: 0; }
+  .lexical-mermaid-node { @apply my-3 w-full; }
+  .lexical-mermaid-preview svg { max-width: 100%; height: auto; margin: 0 auto; }
+  .lexical-mermaid-full-view-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid var(--surface-border);
+    border-radius: 0.375rem;
+    background: var(--surface-raised);
+    padding: 0.25rem 0.5rem;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 10%);
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  }
+  .lexical-mermaid-full-view-button:hover {
+    border-color: var(--brand-primary);
+    background: var(--surface-muted);
+    color: var(--brand-primary);
+    box-shadow: 0 2px 6px rgb(5 150 105 / 18%);
+  }
+  .lexical-mermaid-full-view-button:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+  }
+  .lexical-mermaid-preview-error { @apply whitespace-pre-wrap text-destructive; }
+  .lexical-html-preview-node { @apply my-5 w-full; }
+.lexical-tailwind-tsx-preview-node { @apply my-5 w-full; }
+
+.tailwind-tsx-code-panel {
+  height: min(520px, 65vh);
+  min-height: 420px;
+  overflow: hidden;
+}
+
+.lexical-mermaid-fullscreen-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: grid;
+  place-items: center;
+  background: rgb(15 23 42 / 72%);
+  padding: 1.5rem;
+}
+
+.lexical-mermaid-fullscreen-panel {
+  display: flex;
+  width: min(96vw, 1800px);
+  height: min(90vh, 1080px);
+  min-height: 420px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+  border-radius: 0.875rem;
+  background: var(--surface-raised);
+  box-shadow: 0 24px 80px rgb(15 23 42 / 35%);
+}
+
+.lexical-mermaid-fullscreen-header {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--surface-border-soft);
+  padding: 0.75rem 1rem 0.75rem 1.25rem;
+}
+
+.lexical-mermaid-fullscreen-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lexical-mermaid-fullscreen-header h2 {
+  margin: 0.125rem 0 0;
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.lexical-mermaid-fullscreen-close {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--surface-border);
+  border-radius: 0.5rem;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.lexical-mermaid-fullscreen-close:hover {
+  border-color: var(--brand-primary);
+  background: var(--surface-muted);
+  color: var(--brand-primary);
+}
+
+.lexical-mermaid-fullscreen-close:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.lexical-mermaid-fullscreen-stage {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface-raised));
+}
+
+.lexical-mermaid-fullscreen-diagram {
+  display: grid;
+  min-width: max-content;
+  min-height: 100%;
+  place-items: center;
+  padding: 2.5rem;
+}
+
+.lexical-mermaid-fullscreen-diagram svg {
+  max-width: none;
+  height: auto;
+}
+
+.tailwind-tsx-code-panel .cm-editor,
+.tailwind-tsx-code-panel .cm-scroller {
+  height: 100%;
+}
+
+.tailwind-tsx-code-panel .cm-scroller {
+  overflow: auto;
+}
+  /* 체크리스트는 불릿 목록의 기본 여백과 분리한다. Lexical의 check list는
+     일반 ul이기도 하므로 테마 클래스가 없으면 체크 표시와 본문 시작선이 어긋난다. */
+  .editor-checklist { @apply mb-2 ml-0 list-none p-0; }
+  .editor-list-item-checked, .editor-list-item-unchecked { @apply relative mb-1 list-none pl-7 text-text-primary; }
+  .editor-list-item-checked::before, .editor-list-item-unchecked::before {
+    /* 목록의 line-height(1.75rem) 안에서 체크 상자(1.05rem)를 정확히 중앙에 둔다.
+       퍼센트 중앙 정렬은 여러 줄 항목에서 상자가 중간 줄로 내려가므로 쓰지 않는다. */
+    @apply absolute left-0 top-[calc((1.75rem-1.05rem)/2)] grid size-[1.05rem] place-items-center rounded-[0.3rem] border text-[0.7rem] font-black leading-none;
+  }
+  .editor-list-item-unchecked::before { content: ""; @apply border-surface-border bg-surface-raised; }
+  .editor-list-item-checked { @apply text-text-secondary line-through; }
+  .editor-list-item-checked::before { content: "✓"; @apply border-brand-primary bg-brand-primary text-text-on-brand; }
+  .lexical-editor-input > code[data-language], .lexical-editor-input > code[data-highlight-language] { position: relative; padding-top: 1rem; }
+  [data-code-copy-button] { position: fixed; top: .55rem; right: .55rem; z-index: 100; display: inline-flex; width: 1.75rem; height: 1.75rem; align-items: center; justify-content: center; border: 1px solid var(--surface-border-soft); border-radius: .375rem; background: var(--surface-raised); color: var(--text-secondary); cursor: pointer; }
+  [data-code-copy-button] svg { display: block; width: .9rem; height: .9rem; fill: none; stroke: currentColor; stroke-width: 2; }
+}
+
+/* Drawer animations */
+@keyframes drawerFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes drawerFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes drawerSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes drawerSlideOut {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+.animate-drawer-fade-in {
+  animation: drawerFadeIn 0.2s ease-out forwards;
+}
+.animate-drawer-fade-out {
+  animation: drawerFadeOut 0.2s ease-in forwards;
+}
+.animate-drawer-slide-in {
+  animation: drawerSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-drawer-slide-out {
+  animation: drawerSlideOut 0.2s ease-in forwards;
+}
+
+/* Sub-document transition */
+@keyframes subDocFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-sub-doc-fade-in {
+  animation: subDocFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes tailwind-tsx-view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tailwind-tsx-view-enter {
+  animation: tailwind-tsx-view-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tailwind-tsx-view-enter {
+    animation: none;
+  }
+}

@@ -1,0 +1,35 @@
+# Dependencies and build output
+node_modules/
+.next/
+.next-appstore/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Tauri/Rust build output
+src-tauri/target/
+src-tauri/binaries/
+target/
+
+# Local application data
+.data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Keep local databases and their backups out of source control.
+
+# Environment and local tooling
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+.vercel/
+.codex/
+
+# The Mac App Store provisioning profile is downloaded from Apple per signing Mac.
+src-tauri/appstore/embedded.provisionprofile

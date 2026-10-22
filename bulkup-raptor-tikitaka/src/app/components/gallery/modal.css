@@ -1,0 +1,51 @@
+/* 외부 UI 라이브러리 없이 쓰는 Modal·Drawer 스타일.
+   포털을 쓰지 않고 부모 안에 absolute로 깔리므로, 화면 전체를 덮으려면
+   position:fixed 컨테이너에 넣거나 사용하는 쪽에서 createPortal로 감싼다. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  z-index: 10;
+}
+.overlay-center { align-items: center; justify-content: center; padding: 20px; }
+.overlay-right  { align-items: stretch; justify-content: flex-end; }
+.overlay-left   { align-items: stretch; justify-content: flex-start; }
+
+.sheet {
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.24);
+  font-family: inherit;
+  min-width: 0;
+}
+.sheet-modal  { width: min(440px, 100%); border-radius: 14px; max-height: 100%; }
+.sheet-drawer { width: min(320px, 84%); height: 100%; }
+
+.sheet-head {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.sheet-heads { min-width: 0; }
+.sheet-title { font-size: 15px; font-weight: 900; color: #0f172a; margin: 0; }
+.sheet-desc  { font-size: 12.5px; font-weight: 600; color: #64748b; margin: 4px 0 0; }
+.sheet-close {
+  margin-left: auto; flex-shrink: 0;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 7px;
+  background: transparent; color: #475569;
+  font-size: 16px; line-height: 1; cursor: pointer;
+}
+.sheet-close:hover { background: #f1f5f9; }
+
+.sheet-body { padding: 16px 18px; font-size: 13px; font-weight: 600; color: #334155; overflow-y: auto; }
+.sheet-foot {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: auto;
+}
+
