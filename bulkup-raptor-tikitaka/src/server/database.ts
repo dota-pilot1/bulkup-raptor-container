@@ -430,6 +430,7 @@ function ensureBulkupNoteSpaces() {
     ["AUTH_SIGNIN", "로그인·로그아웃"], ["AUTH_ROLE", "권한·역할"], ["AUTH_TOKEN", "세션·토큰"],
     ["MENU", "메뉴 관리"], ["CATEGORY", "카테고리"], ["PRODUCT_MODEL", "상품 데이터 모델"], ["DATABASE", "PostgreSQL·마이그레이션"],
     ["ADMIN_LAYOUT", "관리자 레이아웃"], ["ADMIN_PRODUCT", "상품 관리"], ["ADMIN_INVENTORY", "재고 관리"], ["ADMIN_ORDER", "주문 관리"], ["ADMIN_MEMBER", "회원 관리"],
+    ["IMAGE_UPLOAD", "이미지 업로드"],
     ["PRODUCT_PAGE", "상품 목록·상세"], ["SEARCH_FILTER", "검색·필터"], ["CART", "장바구니"], ["SEO_CONTENT", "SEO·콘텐츠"],
     ["ORDER_STATUS", "주문 생성·상태"], ["PAYMENT", "결제 승인·실패·취소"], ["SHIPPING", "배송·주문 조회"], ["REFUND", "환불·부분 환불"], ["STOCK_FLOW", "재고 차감·복구"],
     ["TEST", "단위·API 테스트"], ["AUTH_TEST", "화면·권한 테스트"], ["INCIDENT", "장애 시나리오"], ["REVIEW_RETRO", "코드 리뷰·회고"],

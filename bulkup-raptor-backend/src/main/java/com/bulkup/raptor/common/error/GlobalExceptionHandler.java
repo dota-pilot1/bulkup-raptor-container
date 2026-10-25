@@ -17,6 +17,26 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ProblemDetail> handleUploadSize(
+            org.springframework.web.multipart.MaxUploadSizeExceededException exception,
+            HttpServletRequest request) {
+        return handleBusiness(new BusinessException(ErrorCode.IMAGE_FILE_TOO_LARGE), request);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ProblemDetail> handleMissingPart(
+            org.springframework.web.multipart.support.MissingServletRequestPartException exception,
+            HttpServletRequest request) {
+        return handleBusiness(new BusinessException(ErrorCode.IMAGE_FILE_REQUIRED), request);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ProblemDetail> handleMediaType(
+            org.springframework.web.HttpMediaTypeNotSupportedException exception) {
+        return ResponseEntity.status(exception.getStatusCode()).body(exception.getBody());
+    }
+
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> handleConflict(
             org.springframework.dao.DataIntegrityViolationException exception) {

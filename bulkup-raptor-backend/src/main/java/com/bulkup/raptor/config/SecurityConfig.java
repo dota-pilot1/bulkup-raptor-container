@@ -122,6 +122,8 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 "/api/admin/shipments", "/api/admin/shipments/**")
                                         .hasAuthority("SHIPPING_MANAGE")
+                                        .requestMatchers("/api/admin/images", "/api/admin/images/**")
+                                        .hasAuthority("PRODUCT_MANAGE")
                                         .requestMatchers("/api/admin/**")
                                         .hasRole("ADMIN")
                                         .requestMatchers("/api/products", "/api/products/**")

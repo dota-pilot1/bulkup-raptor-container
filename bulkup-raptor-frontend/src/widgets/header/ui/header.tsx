@@ -41,7 +41,6 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
   const accountRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const member = useQuery({ queryKey: ["me"], queryFn: currentMember });
-  const isAdmin = Boolean(member.data?.roles.some((role) => role.code === "ADMIN"));
   const showAdminMenu = canAccessAdmin(member.data);
   const signOut = useMutation({
     mutationFn: logout,
@@ -98,6 +97,15 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
             </button>
             <span className="mx-1 hidden h-5 w-px bg-zinc-200 sm:block" aria-hidden="true" />
 
+            {showAdminMenu && (
+              <Link
+                href="/admin"
+                className="hidden h-10 items-center justify-center rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 lg:inline-flex"
+              >
+                관리자
+              </Link>
+            )}
+
             {member.data ? (
               <div ref={accountRef} className="relative">
                 <button
@@ -115,11 +123,6 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
                     {member.data.name}
                     <span className="ml-0.5 text-[11px] font-normal text-zinc-400">님</span>
                   </span>
-                  {isAdmin && (
-                    <span className="hidden shrink-0 rounded-md bg-emerald-100 lg:inline-flex px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                      관리자
-                    </span>
-                  )}
                   <svg className={`hidden h-3.5 w-3.5 text-zinc-400 transition sm:block ${isAccountOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -140,7 +143,7 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
                         내 정보
                       </a>
                       {showAdminMenu && (
-                        <>
+                        <div className="lg:hidden">
                           <div role="separator" className="mx-2 my-1 h-px bg-zinc-100" />
                           <a
                             href="/admin"
@@ -152,7 +155,7 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 17 17 7M7 7h10v10" />
                             </svg>
                           </a>
-                        </>
+                        </div>
                       )}
                       <div role="separator" className="mx-2 my-1 h-px bg-zinc-100" />
                       <button

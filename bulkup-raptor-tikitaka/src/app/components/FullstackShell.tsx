@@ -12,7 +12,7 @@ import { ToastProvider } from "@/shared/ui/toast";
 import { BookmarkProvider } from "@/features/hospital-playbook/bookmarks";
 import packageJson from "../../../package.json";
 
-type RailGroup = "architecture" | "data-access" | "auth" | "catalog" | "admin" | "storefront" | "commerce" | "quality" | "devops";
+type RailGroup = "architecture" | "data-access" | "auth" | "catalog" | "admin" | "uploads" | "storefront" | "commerce" | "quality" | "devops";
 type RailSubgroup = RailGroup;
 type RailItem = { label: string; moduleLabel?: string; icon: LucideIcon; group: RailGroup; subgroup?: RailSubgroup };
 
@@ -22,6 +22,7 @@ const railGroups: Array<{ id: RailGroup; label: string | null }> = [
   { id: "auth", label: null },
   { id: "catalog", label: null },
   { id: "admin", label: null },
+  { id: "uploads", label: null },
   { id: "storefront", label: null },
   { id: "commerce", label: null },
   { id: "quality", label: null },
@@ -47,6 +48,7 @@ const railItems: RailItem[] = [
   { label: "재고 관리", icon: Database, group: "admin", subgroup: "admin" },
   { label: "주문 관리", icon: ClipboardList, group: "admin", subgroup: "admin" },
   { label: "회원 관리", icon: User, group: "admin", subgroup: "admin" },
+  { label: "이미지 업로드", icon: Library, group: "uploads", subgroup: "uploads" },
   { label: "상품 목록·상세", icon: Boxes, group: "storefront", subgroup: "storefront" },
   { label: "검색·필터", icon: Search, group: "storefront", subgroup: "storefront" },
   { label: "장바구니", icon: ShoppingCart, group: "storefront", subgroup: "storefront" },
@@ -72,6 +74,7 @@ const railSubgroups: Array<{ id: RailSubgroup; label: string }> = [
   { id: "auth", label: "인증·인가" },
   { id: "catalog", label: "메뉴·카테고리·DB" },
   { id: "admin", label: "관리자 페이지" },
+  { id: "uploads", label: "파일 업로드" },
   { id: "storefront", label: "쇼핑몰 사용자 기능" },
   { id: "commerce", label: "주문·결제·배송" },
   { id: "quality", label: "테스트·품질" },

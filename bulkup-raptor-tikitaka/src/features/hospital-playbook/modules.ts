@@ -2,7 +2,7 @@ type BulkupDomain =
   | "SYSTEM" | "DOMAIN" | "API_RULES" | "APP_STRUCTURE" | "ORM_DATA_ACCESS"
   | "AUTH_LOGIN" | "AUTH_SIGNIN" | "AUTH_SIGNUP" | "AUTH_ROLE" | "AUTH_TOKEN" | "AUTH_POLICY"
   | "MENU" | "CATEGORY" | "PRODUCT_MODEL" | "DATABASE"
-  | "ADMIN_LAYOUT" | "ADMIN_PRODUCT" | "ADMIN_INVENTORY" | "ADMIN_ORDER" | "ADMIN_MEMBER"
+  | "ADMIN_LAYOUT" | "ADMIN_PRODUCT" | "IMAGE_UPLOAD" | "ADMIN_INVENTORY" | "ADMIN_ORDER" | "ADMIN_MEMBER"
   | "PRODUCT_PAGE" | "SEARCH_FILTER" | "CART" | "SEO_CONTENT"
   | "ORDER_STATUS" | "PAYMENT" | "SHIPPING" | "REFUND" | "STOCK_FLOW"
   | "TEST" | "AUTH_TEST" | "INCIDENT" | "REVIEW_RETRO"
@@ -11,6 +11,7 @@ type BulkupDomain =
 type PlaybookModule = { domain: BulkupDomain; title: string; initialCategoryId?: number; initialTopicId?: number; initialTopicTitle?: string };
 
 export const playbookModules: Record<string, PlaybookModule> = {
+  "이미지 업로드": { domain: "IMAGE_UPLOAD", title: "이미지 업로드" },
   "시스템 구성": { domain: "SYSTEM", title: "시스템 구성" }, "도메인 설계": { domain: "DOMAIN", title: "도메인 설계" }, "API 규칙": { domain: "API_RULES", title: "API 규칙" }, "백엔드·프론트 구조": { domain: "APP_STRUCTURE", title: "백엔드·프론트 구조" },
   "JPA 기본": { domain: "ORM_DATA_ACCESS", title: "JPA 기본" },
   "스프링 시큐리티": { domain: "AUTH_LOGIN", title: "스프링 시큐리티" },
