@@ -12,6 +12,7 @@ export type DialogProps = {
   maxWidthClassName?: string;
   closeDisabled?: boolean;
   fullScreen?: boolean;
+  scrollable?: boolean;
 };
 
 /**
@@ -30,12 +31,13 @@ export function Dialog({
   maxWidthClassName = "max-w-md",
   closeDisabled = false,
   fullScreen = false,
+  scrollable = false,
 }: DialogProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen || !fullScreen) return;
+    if (!isOpen) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
       'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]',
@@ -95,10 +97,10 @@ export function Dialog({
       }}
     >
       <div
-        className={fullScreen ? "flex h-dvh w-full flex-col overflow-hidden bg-white" : `w-full ${maxWidthClassName} overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-2xl transition-all`}
+        className={fullScreen ? "flex h-dvh w-full flex-col overflow-hidden bg-white" : `w-full ${maxWidthClassName} ${scrollable ? "flex max-h-[calc(100dvh-2rem)] flex-col" : ""} overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-2xl transition-all`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className={`flex items-start justify-between gap-4 ${fullScreen ? "shrink-0 border-b border-zinc-200 px-4 py-5 sm:px-6" : ""}`}>
+        <div className={`flex items-start justify-between gap-4 ${fullScreen ? "shrink-0 border-b border-zinc-200 px-4 py-5 sm:px-6" : scrollable ? "shrink-0" : ""}`}>
           <div className="min-w-0 flex-1">
             {title && (
               <h2 id={titleId} className="text-xl font-bold tracking-tight text-zinc-950">
@@ -134,9 +136,9 @@ export function Dialog({
           </button>
         </div>
 
-        <div className={fullScreen ? "flex min-h-0 flex-1 flex-col" : "mt-4"}>{children}</div>
+        <div className={fullScreen ? "flex min-h-0 flex-1 flex-col" : scrollable ? "mt-4 min-h-0 overflow-y-auto overscroll-contain" : "mt-4"}>{children}</div>
 
-        {footer && <div className={fullScreen ? "shrink-0 border-t border-zinc-200 bg-white px-4 py-4 sm:px-6" : "mt-6 flex justify-end gap-2 border-t border-zinc-100 pt-4"}>{footer}</div>}
+        {footer && <div className={fullScreen ? "shrink-0 border-t border-zinc-200 bg-white px-4 py-4 sm:px-6" : `mt-6 flex justify-end gap-2 border-t border-zinc-100 pt-4 ${scrollable ? "shrink-0" : ""}`}>{footer}</div>}
       </div>
     </div>
   );

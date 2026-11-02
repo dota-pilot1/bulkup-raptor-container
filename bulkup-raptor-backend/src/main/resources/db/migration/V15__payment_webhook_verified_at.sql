@@ -1,0 +1,1 @@
+ALTER TABLE payments ADD COLUMN webhook_verified_at TIMESTAMPTZ DEFAULT NULL;

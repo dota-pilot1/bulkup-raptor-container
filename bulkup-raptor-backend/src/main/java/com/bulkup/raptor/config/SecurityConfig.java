@@ -61,7 +61,14 @@ public class SecurityConfig {
                                                 }))
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers(
+                                auth.requestMatchers(HttpMethod.POST, "/api/payments/webhooks/portone").permitAll()
+                                        // 웹훅 POST만 세션 인증을 제외하며, 컨트롤러에서 서명을 검증한다.
+                                        .requestMatchers("/api/auth/me/default-delivery", "/api/auth/me/addresses", "/api/auth/me/addresses/**").authenticated()
+                                        .requestMatchers(HttpMethod.PATCH, "/api/auth/me/profile-image")
+                                        .authenticated()
+                                        .requestMatchers("/api/cart", "/api/cart/**", "/api/orders", "/api/orders/**", "/api/payments/**")
+                                        .authenticated()
+                                        .requestMatchers(
                                                 "/api/health",
                                                 "/swagger-ui/**",
                                                 "/v3/api-docs/**",
@@ -122,6 +129,9 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 "/api/admin/shipments", "/api/admin/shipments/**")
                                         .hasAuthority("SHIPPING_MANAGE")
+                                        // 범용 이미지 업로드는 로그인한 회원이 사용할 수 있다.
+                                        .requestMatchers("/api/images", "/api/images/**")
+                                        .authenticated()
                                         .requestMatchers("/api/admin/images", "/api/admin/images/**")
                                         .hasAuthority("PRODUCT_MANAGE")
                                         .requestMatchers("/api/admin/**")

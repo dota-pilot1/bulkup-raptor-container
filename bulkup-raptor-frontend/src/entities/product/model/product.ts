@@ -31,6 +31,7 @@ export type Product = {
   categoryLabel: string;
   badge: string | null;
   visual: string;
+  imageUrl?: string | null;
 };
 
 export type ProductInput = {

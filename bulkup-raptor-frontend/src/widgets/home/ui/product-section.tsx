@@ -64,15 +64,15 @@ export function ProductSection() {
   ]));
 
   return (
-    <section id="products" className="mt-20 scroll-mt-28">
+    <section id="products" className="scroll-mt-28">
       {/* 타이틀 및 상단 헤더 */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold tracking-[0.16em] text-emerald-700">CURATED FOR YOU</p>
           <div className="mt-2 flex items-center gap-3">
-            <h2 className="text-2xl font-semibold text-zinc-950">
+            <h1 className="text-2xl font-semibold text-zinc-950">
               {submittedKeyword ? "상품 검색 결과" : selectedLabel}
-            </h2>
+            </h1>
             <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-bold text-zinc-600">
               총 {filteredProducts.length}개
             </span>

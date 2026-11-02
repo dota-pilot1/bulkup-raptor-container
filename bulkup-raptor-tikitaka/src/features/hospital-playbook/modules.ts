@@ -1,5 +1,6 @@
 type BulkupDomain =
-  | "SYSTEM" | "DOMAIN" | "API_RULES" | "APP_STRUCTURE" | "ORM_DATA_ACCESS"
+  | "JAVA_SYNTAX" | "SYSTEM" | "DOMAIN" | "API_RULES" | "APP_STRUCTURE" | "ORM_DATA_ACCESS" | "COMMON_LOGIC"
+  | "UI_DESIGN" | "UX_DESIGN" | "COMMON_MENU" | "COMMON_ERROR" | "DDD_ARCHITECTURE" | "FSD_ARCHITECTURE" | "MAJOR_LIBRARIES"
   | "AUTH_LOGIN" | "AUTH_SIGNIN" | "AUTH_SIGNUP" | "AUTH_ROLE" | "AUTH_TOKEN" | "AUTH_POLICY"
   | "MENU" | "CATEGORY" | "PRODUCT_MODEL" | "DATABASE"
   | "ADMIN_LAYOUT" | "ADMIN_PRODUCT" | "IMAGE_UPLOAD" | "ADMIN_INVENTORY" | "ADMIN_ORDER" | "ADMIN_MEMBER"
@@ -11,8 +12,26 @@ type BulkupDomain =
 type PlaybookModule = { domain: BulkupDomain; title: string; initialCategoryId?: number; initialTopicId?: number; initialTopicTitle?: string };
 
 export const playbookModules: Record<string, PlaybookModule> = {
+  "UI 디자인": { domain: "UI_DESIGN", title: "UI 디자인" },
+  "UX 설계": { domain: "UX_DESIGN", title: "UX 설계" },
+  "주요 라이브러리": { domain: "MAJOR_LIBRARIES", title: "주요 라이브러리" },
+  "공통 UI": { domain: "COMMON_LOGIC", title: "공통 UI" },
+  "공통 메뉴": { domain: "COMMON_MENU", title: "공통 메뉴" },
+  "공통 오류 처리": { domain: "COMMON_ERROR", title: "공통 오류 처리" },
+  "DDD 아키텍처": { domain: "DDD_ARCHITECTURE", title: "DDD 아키텍처" },
+  "FSD 아키텍처": { domain: "FSD_ARCHITECTURE", title: "FSD 아키텍처" },
+  "ORM·데이터 접근": { domain: "ORM_DATA_ACCESS", title: "ORM·데이터 접근" },
+  // 기존 문서 링크와 저장된 메뉴 이름도 계속 열 수 있도록 유지한다.
+  "공통 로직": { domain: "COMMON_LOGIC", title: "공통 로직" },
   "이미지 업로드": { domain: "IMAGE_UPLOAD", title: "이미지 업로드" },
-  "시스템 구성": { domain: "SYSTEM", title: "시스템 구성" }, "도메인 설계": { domain: "DOMAIN", title: "도메인 설계" }, "API 규칙": { domain: "API_RULES", title: "API 규칙" }, "백엔드·프론트 구조": { domain: "APP_STRUCTURE", title: "백엔드·프론트 구조" },
+  // 기존 공간 코드를 유지해 문서 ID와 외부 링크를 보존한다.
+  "시스템 구성": { domain: "SYSTEM", title: "시스템 구성" },
+  "백엔드 구조": { domain: "DOMAIN", title: "백엔드 구조" },
+  "프론트엔드 구조": { domain: "APP_STRUCTURE", title: "프론트엔드 구조" },
+  "API 규칙": { domain: "API_RULES", title: "API 규칙" },
+  "자바 문법": { domain: "JAVA_SYNTAX", title: "자바 문법" },
+  "도메인 설계": { domain: "DOMAIN", title: "백엔드 구조" },
+  "백엔드·프론트 구조": { domain: "DOMAIN", title: "백엔드 구조" },
   "JPA 기본": { domain: "ORM_DATA_ACCESS", title: "JPA 기본" },
   "스프링 시큐리티": { domain: "AUTH_LOGIN", title: "스프링 시큐리티" },
   "회원가입": { domain: "AUTH_SIGNUP", title: "회원가입" }, "로그인·로그아웃": { domain: "AUTH_SIGNIN", title: "로그인·로그아웃" }, "권한·역할": { domain: "AUTH_ROLE", title: "권한·역할" }, "세션·토큰": { domain: "AUTH_TOKEN", title: "세션·토큰" },

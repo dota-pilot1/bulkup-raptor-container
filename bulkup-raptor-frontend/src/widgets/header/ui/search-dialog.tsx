@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { listProducts } from "@/lib/api";
-import { productVisualClass } from "@/entities/product/model/product";
+import { ProductVisual } from "@/entities/product/ui/product-visual";
 import { useCartStore } from "@/store/cart-store";
 import { SearchDialog as CommonSearchDialog, type SearchDialogItem } from "@/components/ui/search-dialog";
 
@@ -21,8 +21,8 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     description: product.description,
     category: product.categoryLabel,
     price: product.price,
-    visual: product.visual,
-    visualClass: productVisualClass[product.category] ?? "bg-zinc-100",
+    visual: <span className="relative block h-full w-full overflow-hidden rounded-lg"><ProductVisual product={product} compact sizes="44px" /></span>,
+    visualClass: "bg-zinc-50",
     actionLabel: "+ 담기",
     actionDoneLabel: "✓ 담김",
     onAction: (item) => {
@@ -30,7 +30,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
         productId: Number(item.id),
         name: item.title,
         price: item.price ?? 0,
-        visual: typeof item.visual === "string" ? item.visual : undefined,
+        imageUrl: product.imageUrl,
         category: item.category,
         quantity: 1,
       });
@@ -41,7 +41,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     id: product.id,
     title: product.name,
     price: product.price,
-    visual: product.visual,
+    visual: <span className="relative inline-flex h-8 w-8 shrink-0 overflow-hidden rounded-md align-middle"><ProductVisual product={product} compact sizes="32px" /></span>,
   }));
 
   return (

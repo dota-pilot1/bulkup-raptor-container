@@ -1,5 +1,8 @@
 package com.bulkup.raptor.auth.domain;
 
+import jakarta.persistence.ManyToOne;
+import com.bulkup.raptor.image.domain.UploadedImage;
+
 import com.bulkup.raptor.role.domain.Role;
 
 import jakarta.persistence.Column;
@@ -48,6 +51,10 @@ public class Member {
     @Column(nullable = false, length = 50)
     private String name;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "profile_image_key", referencedColumnName = "storage_key")
+    private UploadedImage profileImage;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MemberStatus status;
@@ -91,6 +98,22 @@ public class Member {
     public static Member pending(
             String email, String passwordHash, String name, Instant agreedAt, Role role) {
         return new Member(email, passwordHash, name, agreedAt, role);
+    }
+
+    public void changeProfileImage(UploadedImage image) {
+        // 현재 회원이 업로드한 이미지인지 확인한다.
+        boolean isOwner = Objects.equals(id, image.getUploaderMemberId());
+        // 이미지가 저장 완료 상태인지 확인한다.
+        boolean isStored = image.getStatus() == UploadedImage.Status.STORED;
+
+        if (!isOwner || !isStored) {
+            throw new IllegalArgumentException("Profile image must belong to this member");
+        }
+        this.profileImage = image;
+    }
+
+    public String getProfileImageUrl() {
+        return profileImage == null ? null : profileImage.getUrl();
     }
 
     public void activateAfterEmailVerification() {

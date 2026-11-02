@@ -326,6 +326,9 @@ function HospitalPlaybookModule({
   );
   const [isRefreshingTree, setIsRefreshingTree] = useState(false);
   const [submittedSearch, setSubmittedSearch] = useState("");
+  const [pendingCategorySelection, setPendingCategorySelection] = useState<
+    number | null
+  >(null);
   const [pendingTopicSelection, setPendingTopicSelection] = useState<
     number | null
   >(null);
@@ -462,6 +465,15 @@ function HospitalPlaybookModule({
   }, [hydrateLayout]);
   useEffect(() => {
     if (!selectionHydrated) return;
+    if (pendingCategorySelection !== null) {
+      if (categories.some((item) => item.id === pendingCategorySelection)) {
+        setCategoryId(pendingCategorySelection);
+        setTopicId(null);
+        setPendingTopicSelection(null);
+        setPendingCategorySelection(null);
+      }
+      return;
+    }
     if (!categories.length) {
       setCategoryId((current) => (current === null ? current : null));
       return;
@@ -472,7 +484,7 @@ function HospitalPlaybookModule({
           categories.find((item) => item.id === initialCategoryId)?.id ??
           categories[0].id,
       );
-  }, [categories, categoryId, initialCategoryId, rememberedMenu?.categoryId, selectionHydrated]);
+  }, [categories, categoryId, pendingCategorySelection, initialCategoryId, rememberedMenu?.categoryId, selectionHydrated]);
   useEffect(() => {
     if (!selectionHydrated) return;
     const topics = category?.topics ?? EMPTY_TOPICS;
@@ -548,7 +560,8 @@ function HospitalPlaybookModule({
   const createCategory = useMutation({
     mutationFn: (categoryTitle: string) =>
       playbookApi.createCategory(domain, categoryTitle),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      setPendingCategorySelection(created.id);
       invalidate();
       showToast("1차 메뉴를 추가했습니다.");
     },

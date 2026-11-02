@@ -6,8 +6,9 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { catalogNav, categoryFromQuery, categoryHref } from "@/entities/product/model/product";
 import { currentMember, logout } from "@/lib/api";
-import { canAccessAdmin } from "@/entities/session";
-import { useCartStore } from "@/store/cart-store";
+import { canAccessAdmin, MemberAvatar, type MemberSession } from "@/entities/session";
+import { useCart } from "@/entities/cart/model/use-cart";
+import { ApiError } from "@/shared/api/client";
 import { LoginDialog } from "@/features/login";
 import { SearchDialog } from "./search-dialog";
 import { CartDrawer } from "./cart-drawer";
@@ -33,23 +34,37 @@ function CategoryNav() {
   );
 }
 
-export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
+export function Header({ fullWidth = false, initialCartOpen = false }: { fullWidth?: boolean; initialCartOpen?: boolean }) {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(initialCartOpen);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const member = useQuery({ queryKey: ["me"], queryFn: currentMember });
+  const memberId = member.data?.id ?? null;
+  const cart = useCart(memberId);
   const showAdminMenu = canAccessAdmin(member.data);
   const signOut = useMutation({
     mutationFn: logout,
     onSuccess: async () => {
       queryClient.setQueryData(["me"], null);
+      queryClient.removeQueries({ queryKey: ["cart"] });
+      queryClient.removeQueries({ queryKey: ["orders"] });
+      queryClient.removeQueries({ queryKey: ["default-delivery"] });
       await queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
-  const itemCount = useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
+  const itemCount = cart.isError ? undefined : cart.data?.items.length;
+
+  useEffect(() => {
+    if (!(cart.error instanceof ApiError) || cart.error.status !== 401 || memberId === null) return;
+    if (queryClient.getQueryData<MemberSession | null>(["me"])?.id !== memberId) return;
+    queryClient.setQueryData(["me"], null);
+    queryClient.removeQueries({ queryKey: ["cart"] });
+      queryClient.removeQueries({ queryKey: ["orders"] });
+      queryClient.removeQueries({ queryKey: ["default-delivery"] });
+  }, [cart.error, memberId, queryClient]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -102,7 +117,7 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
                 href="/admin"
                 className="hidden h-10 items-center justify-center rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 lg:inline-flex"
               >
-                관리자
+                관리
               </Link>
             )}
 
@@ -116,9 +131,7 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
                   aria-expanded={isAccountOpen}
                   aria-haspopup="menu"
                 >
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-800">
-                    {member.data.name.slice(0, 1)}
-                  </span>
+                  <MemberAvatar name={member.data.name} imageUrl={member.data.profileImageUrl} />
                   <span className="hidden max-w-28 truncate text-sm font-semibold text-zinc-900 sm:block">
                     {member.data.name}
                     <span className="ml-0.5 text-[11px] font-normal text-zinc-400">님</span>
@@ -142,6 +155,14 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
                       >
                         내 정보
                       </a>
+                      <Link
+                        href="/orders"
+                        onClick={() => setIsAccountOpen(false)}
+                        role="menuitem"
+                        className="flex min-h-10 items-center rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950"
+                      >
+                        주문 내역
+                      </Link>
                       {showAdminMenu && (
                         <div className="lg:hidden">
                           <div role="separator" className="mx-2 my-1 h-px bg-zinc-100" />
@@ -192,13 +213,28 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
               </div>
             )}
 
+            {memberId !== null && cart.isError && !(cart.error instanceof ApiError && cart.error.status === 401) && (
+              <button
+                type="button"
+                onClick={() => void cart.refetch()}
+                disabled={cart.isFetching}
+                aria-label="장바구니 수량 조회 실패. 다시 시도"
+                title="장바구니 수량을 불러오지 못했습니다. 다시 시도하세요."
+                className="grid h-8 w-8 place-items-center rounded-lg text-sm font-bold text-rose-600 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:opacity-50"
+              >
+                !
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setIsCartOpen(true)}
-              className="relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-              aria-label="장바구니 열기"
+              onClick={() => {
+                setIsCartOpen(true);
+                if (memberId !== null && !cart.isFetching) void cart.refetch({ cancelRefetch: false });
+              }}
+              className="relative grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-emerald-600"
+              aria-label={itemCount !== undefined && itemCount > 0 ? `장바구니 열기, 상품 ${itemCount}종` : "장바구니 열기"}
             >
-              <svg className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4.5 w-4.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -206,7 +242,7 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
                   d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
                 />
               </svg>
-              {itemCount > 0 && (
+              {itemCount !== undefined && itemCount > 0 && (
                 <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-emerald-600 px-1 text-[10px] font-extrabold text-white ring-2 ring-white">
                   {itemCount}
                 </span>
@@ -218,7 +254,13 @@ export function Header({ fullWidth = false }: { fullWidth?: boolean }) {
 
       <LoginDialog isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
       <SearchDialog isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onLogin={() => { setIsCartOpen(false); setIsLoginOpen(true); }}
+        member={member}
+        cart={cart}
+      />
     </>
   );
 }

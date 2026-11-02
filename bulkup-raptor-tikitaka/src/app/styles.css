@@ -375,6 +375,18 @@ select.http-method-delete,
   .lexical-mermaid-preview-flat { margin: 0; border: 0; background: transparent; padding: 0; }
   .lexical-mermaid-node { @apply my-3 w-full; }
   .lexical-mermaid-preview svg { max-width: 100%; height: auto; margin: 0 auto; }
+  /* Mermaid가 측정한 라벨의 줄바꿈을 유지한다. 본문 스타일이 추가 줄을 만들면
+     고정 높이의 foreignObject 안에서 마지막 줄이 잘린다. */
+  :is(.lexical-mermaid-preview, .lexical-mermaid-fullscreen-diagram) svg foreignObject,
+  :is(.lexical-mermaid-preview, .lexical-mermaid-fullscreen-diagram) svg foreignObject * {
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+  :is(.lexical-mermaid-preview, .lexical-mermaid-fullscreen-diagram) svg foreignObject p {
+    /* 드로워의 일반 문단 줄높이보다 Mermaid의 측정 기준을 우선한다. */
+    line-height: 1.5 !important;
+    margin: 0 !important;
+  }
   .lexical-mermaid-full-view-button {
     position: absolute;
     top: 0.5rem;

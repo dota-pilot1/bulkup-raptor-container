@@ -5,6 +5,7 @@ import * as schema from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { applyMigrations } from "@/server/db/migrations";
 import { ensureOrmNoteSpace } from "@/server/db/orm-note-space";
+import { organizeArchitectureNoteSpaces } from "@/server/db/architecture-note-spaces";
 import { databaseExistedBeforeOpen, databasePath, dataDirectory, pendingRestorePath, sqlite } from "@/server/db/connection";
 
 type InitializationGlobal = typeof globalThis & {
@@ -425,7 +426,13 @@ function ensureBulkupNoteSpaces() {
   // Bulkup Raptor 전용 노트 공간만 보장한다.
   // 카테고리·주제·문서는 사용자가 직접 입력한 것만 유지한다.
   const bulkupNoteSpaces = [
-    ["SYSTEM", "시스템 구성"], ["DOMAIN", "도메인 설계"], ["API_RULES", "API 규칙"], ["APP_STRUCTURE", "백엔드·프론트 구조"],
+    ["SYSTEM", "시스템 구성"], ["DOMAIN", "백엔드 구조"], ["APP_STRUCTURE", "프론트엔드 구조"], ["API_RULES", "API 규칙"],
+    ["JAVA_SYNTAX", "자바 문법"],
+    ["COMMON_LOGIC", "공통 로직"],
+    ["COMMON_MENU", "공통 메뉴"],
+    ["UI_DESIGN", "UI 디자인"], ["UX_DESIGN", "UX 설계"],
+    ["MAJOR_LIBRARIES", "주요 라이브러리"],
+    ["COMMON_ERROR", "공통 오류 처리"], ["DDD_ARCHITECTURE", "DDD 아키텍처"], ["FSD_ARCHITECTURE", "FSD 아키텍처"],
     ["AUTH_LOGIN", "스프링 시큐리티"], ["AUTH_SIGNUP", "회원가입"],
     ["AUTH_SIGNIN", "로그인·로그아웃"], ["AUTH_ROLE", "권한·역할"], ["AUTH_TOKEN", "세션·토큰"],
     ["MENU", "메뉴 관리"], ["CATEGORY", "카테고리"], ["PRODUCT_MODEL", "상품 데이터 모델"], ["DATABASE", "PostgreSQL·마이그레이션"],
@@ -443,6 +450,7 @@ function ensureBulkupNoteSpaces() {
 }
 
 ensureBulkupNoteSpaces();
+organizeArchitectureNoteSpaces(sqlite);
 
 export const db = drizzle(sqlite, { schema });
 

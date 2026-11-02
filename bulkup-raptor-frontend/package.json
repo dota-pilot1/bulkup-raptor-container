@@ -7,10 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:menu-access": "node --test scripts/test-menu-access.mjs"
+    "test:menu-access": "node --test scripts/test-menu-access.mjs",
+    "test:product-images": "node --test scripts/test-product-images.mjs",
+    "test:add-to-cart": "node --test scripts/test-add-to-cart.mjs",
+    "test:cart-query": "node --test scripts/test-cart-query.mjs",
+    "test:cart": "node --test scripts/test-add-to-cart.mjs scripts/test-cart-query.mjs scripts/test-cart-drawer.mjs scripts/test-cart-header.mjs scripts/test-update-cart-quantity.mjs scripts/test-delete-cart-item.mjs",
+    "test:order": "node --test scripts/test-create-order.mjs scripts/test-order-history.mjs scripts/test-prepare-payment.mjs scripts/test-request-payment.mjs",
+    "test:addresses": "node --test scripts/test-addresses.mjs",
+    "test:payment": "node --test scripts/test-prepare-payment.mjs scripts/test-request-payment.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
+    "@portone/browser-sdk": "^0.1.13",
     "@tanstack/react-query": "^5.104.0",
     "next": "16.3.6",
     "react": "19.2.8",

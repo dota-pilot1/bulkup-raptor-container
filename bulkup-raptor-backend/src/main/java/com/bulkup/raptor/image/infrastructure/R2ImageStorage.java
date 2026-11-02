@@ -49,7 +49,7 @@ public class R2ImageStorage implements ImageStorage {
             // 3. 실제로 보낼 파일 바이트를 요청 본문 객체에 담는다.
             RequestBody body = RequestBody.fromBytes(content);
 
-            // 4. 저장 정보(request)와 파일 내용(body)을 두 인수로 전달하여 업로드한다.
+            // 4. 이 호출에서 파일 바이트를 R2로 실제 전송한다. 업로드가 완료되면 다음 줄로 진행한다.
             client.putObject(request, body);
         } catch (SdkException exception) {
             // SDK 오류 원문 대신 우리 서비스의 업로드 실패 오류를 반환한다.

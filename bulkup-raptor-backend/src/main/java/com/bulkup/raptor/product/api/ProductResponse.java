@@ -13,6 +13,7 @@ public record ProductResponse(
     String categoryLabel,
     String badge,
     String visual,
+    String imageUrl,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -26,6 +27,7 @@ public record ProductResponse(
             product.getCategory().getLabel(),
             product.getBadge(),
             product.getVisual(),
+            product.getImageUrl(),
             product.getCreatedAt(),
             product.getUpdatedAt()
         );

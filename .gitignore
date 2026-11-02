@@ -32,3 +32,6 @@ coverage/
 .idea/
 .vscode/
 .codex/
+
+# Local PortOne credentials and setup notes
+/포트원 결제 정보/

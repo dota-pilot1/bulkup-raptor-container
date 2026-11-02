@@ -2,6 +2,8 @@ package com.bulkup.raptor.product.service;
 
 import com.bulkup.raptor.common.error.BusinessException;
 import com.bulkup.raptor.common.error.ErrorCode;
+import com.bulkup.raptor.image.domain.UploadedImage;
+import com.bulkup.raptor.image.repository.UploadedImageRepository;
 import com.bulkup.raptor.product.api.ProductRequest;
 import com.bulkup.raptor.product.api.ProductResponse;
 import com.bulkup.raptor.product.domain.Product;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final UploadedImageRepository images;
 
     @Transactional(readOnly = true)
     public List<ProductResponse> list() {
@@ -28,8 +31,26 @@ public class ProductService {
         return ProductResponse.from(findProduct(id));
     }
 
+    @Transactional(readOnly = true)
+    public void validateExists(Long id) {
+        if (!productRepository.existsById(id)) {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+    }
+
     @Transactional
     public ProductResponse create(ProductRequest request) {
+        return saveProduct(request, null);
+    }
+
+    @Transactional
+    public ProductResponse createWithImage(ProductRequest request, String key, Long memberId) {
+        var image = images.findOwnedImage(key, memberId, UploadedImage.Status.STORED)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_IMAGE_NOT_AVAILABLE));
+        return saveProduct(request, image);
+    }
+
+    private ProductResponse saveProduct(ProductRequest request, UploadedImage image) {
         Product product = Product.create(
             request.name().trim(),
             request.description().trim(),
@@ -38,12 +59,29 @@ public class ProductService {
             normalizeBadge(request.badge()),
             request.visual().trim()
         );
+        product.attachImage(image);
         return ProductResponse.from(productRepository.save(product));
     }
 
     @Transactional
     public ProductResponse update(Long id, ProductRequest request) {
         Product product = findProduct(id);
+        changeProduct(product, request);
+        return ProductResponse.from(product);
+    }
+
+    @Transactional
+    public ProductResponse updateWithImage(Long id, ProductRequest request, String key, Long memberId) {
+        Product product = findProduct(id);
+        var image = images.findOwnedImage(key, memberId, UploadedImage.Status.STORED)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_IMAGE_NOT_AVAILABLE));
+        changeProduct(product, request);
+        product.attachImage(image);
+        productRepository.flush();
+        return ProductResponse.from(product);
+    }
+
+    private void changeProduct(Product product, ProductRequest request) {
         product.change(
             request.name().trim(),
             request.description().trim(),
@@ -52,7 +90,6 @@ public class ProductService {
             normalizeBadge(request.badge()),
             request.visual().trim()
         );
-        return ProductResponse.from(product);
     }
 
     @Transactional

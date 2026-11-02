@@ -13,6 +13,7 @@ export type MemberSession = {
   id: number;
   email: string;
   name: string;
+  profileImageUrl?: string | null;
   status: "PENDING" | "ACTIVE" | "SUSPENDED";
   roles: MemberRole[];
   permissions: string[];
