@@ -2,7 +2,8 @@ import type { OrderFilter } from "../model/order-types";
 
 const tabs: { status: OrderFilter; label: string }[] = [
   { status: "ALL", label: "전체" }, { status: "CREATED", label: "결제 대기" },
-  { status: "PAID", label: "결제 완료" }, { status: "CANCELLED", label: "주문 취소" },
+  { status: "PAID", label: "결제 완료" }, { status: "CANCELLABLE", label: "취소 가능" },
+  { status: "CANCELLED", label: "주문 취소" },
 ];
 export function OrderStatusTabs({ status, counts, onChange }: {
   status: OrderFilter; counts?: Record<OrderFilter, number>; onChange: (value: OrderFilter) => void;

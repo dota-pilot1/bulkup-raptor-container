@@ -43,8 +43,9 @@ public class AdminOrderController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
             @RequestParam(defaultValue = "") @Size(max = 100) String search,
-            @RequestParam(required = false) AdminOrderStatus status) {
-        return orders.list(page, size, search, status);
+            @RequestParam(required = false) AdminOrderStatus status,
+            @RequestParam(defaultValue = "false") boolean cancellable) {
+        return orders.list(page, size, search, status, cancellable);
     }
 
     @GetMapping("/{orderId}")

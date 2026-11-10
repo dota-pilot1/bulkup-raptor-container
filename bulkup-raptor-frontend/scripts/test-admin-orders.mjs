@@ -22,6 +22,10 @@ test('admin order API sends pagination, optional status, encoded search and abor
   await getAdminOrders({ page: 0, size: 10, search: '', status: 'ALL' }, signal);
   assert.equal(api.calls.at(-1).path, '/api/admin/orders?page=0&size=10&search=');
   assert.equal(api.calls.at(-1).signal, signal);
+  await getAdminOrders({ page: 2, size: 50, search: '구매자_%&', status: 'CANCELLABLE' });
+  const cancellable = new URL(api.calls.at(-1).path, 'http://localhost').searchParams;
+  assert.equal(cancellable.get('cancellable'), 'true');
+  assert.equal(cancellable.get('status'), null);
   await getAdminOrders({ page: 2, size: 50, search: '구매자_%&', status: 'CREATED' });
   const query = new URL(api.calls.at(-1).path, 'http://localhost').searchParams;
   assert.equal(query.get('search'), '구매자_%&');
@@ -75,7 +79,7 @@ const detailKey = ['admin-order', 1, 153];
 const page = content => ({ content, page: 0, size: 10, totalPages: 2, totalElements: 11 });
 test('whole order list includes unpaid and paid orders with buyer, snapshot, quantity and detail link', () => {
   const { html } = render(OrderManagement, viewer, listKey, page([row, { ...row, orderId: 154, status: 'PAID' }]));
-  for (const value of ['주문자 테스트', 'buyer@example.test', '주문 당시 상품', '외 1종', '총 3개', '5,400원', '결제 대기', '결제 완료', 'href="/admin/orders/153"', '검색 결과 11건', '1 / 2 페이지']) assert.ok(html.includes(value), value);
+  for (const value of ['주문자 테스트', 'buyer@example.test', '주문 당시 상품', '외 1종', '총 3개', '5,400원', '결제 대기', '결제 완료', '취소 가능', 'href="/admin/orders/153"', '검색 결과 11건', '1 / 2 페이지']) assert.ok(html.includes(value), value);
 });
 test('order list has a distinct search empty state', () => {
   assert.ok(render(OrderManagement, viewer, listKey, page([])).html.includes('조건에 일치하는 주문이 없습니다.'));
@@ -206,10 +210,10 @@ test('bulk cancel dialog shows the count and reason without cancelling until con
 });
 
 test('admin counts preserve active search and use all three status totals across pages',async()=>{
- const source=url(`export const calls=[];export async function apiFetch(path,init){calls.push({path,signal:init.signal});return {totalElements:{CREATED:4,PAID:25,CANCELLED:3}[new URL(path,'http://localhost').searchParams.get('status')],content:[]};}`);
+ const source=url(`export const calls=[];export async function apiFetch(path,init){calls.push({path,signal:init.signal});const params=new URL(path,'http://localhost').searchParams;const status=params.get('cancellable')==='true'?'CANCELLABLE':params.get('status');return {totalElements:{CREATED:4,PAID:25,CANCELLED:3,CANCELLABLE:2}[status],content:[]};}`);
  const api=await import(source);
  const {getAdminOrderCounts}=await import(moduleUrl('../src/entities/order/api/get-admin-orders.ts',{'@/shared/api/client':source}));
  const signal=new AbortController().signal;
- assert.deepEqual(await getAdminOrderCounts('검색어 &',signal),{CREATED:4,PAID:25,CANCELLED:3,ALL:32});
+ assert.deepEqual(await getAdminOrderCounts('검색어 &',signal),{CREATED:4,PAID:25,CANCELLED:3,CANCELLABLE:2,ALL:32});
  for(const request of api.calls){const p=new URL(request.path,'http://localhost').searchParams;assert.equal(p.get('search'),'검색어 &');assert.equal(p.get('size'),'1');assert.equal(request.signal,signal);}
 });

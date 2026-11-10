@@ -87,7 +87,7 @@ export function OrderManagement() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-zinc-950">주문 목록</h1>
-          <p className="mt-2 text-sm text-zinc-500">결제 전 주문을 포함한 전체 주문을 최신순으로 조회합니다. 배송 준비 중인 결제 완료 주문은 취소할 수 있습니다. 시각은 한국 시간 기준입니다.</p>
+          <p className="mt-2 text-sm text-zinc-500">결제 전 주문을 포함한 전체 주문을 최신순으로 조회합니다. 취소 가능 탭은 배송 준비 중인 결제 완료 주문만 모읍니다. 시각은 한국 시간 기준입니다.</p>
         </div>
         <button type="button" disabled={busy} onClick={refresh} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-40">새로고침</button>
       </div>

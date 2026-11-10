@@ -96,6 +96,25 @@ class AdminOrderApiIntegrationTest {
     }
 
     @Test
+    void cancellableFilterKeepsOnlyPreparingPaidOrders() throws Exception {
+        mvc.perform(get("/api/admin/orders").param("search", prefix).param("cancellable", "true")
+                .with(user("viewer").authorities(new SimpleGrantedAuthority("MENU_ADMIN_ACCESS"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].orderId").value(ids.get(2)))
+                .andExpect(jsonPath("$.content[0].status").value("PAID"))
+                .andExpect(jsonPath("$.content[0].deliveryStatus").value("PREPARING"));
+
+        var shipped = orders.findByIdForUpdate(ids.get(2)).orElseThrow();
+        deliveries.findByOrderId(shipped.getId()).orElseThrow().changeStatus(
+                com.bulkup.raptor.delivery.domain.DeliveryStatus.OUT_FOR_DELIVERY, Instant.parse("2026-11-02T00:00:00Z"));
+        orders.flush();
+        em.clear();
+        mvc.perform(get("/api/admin/orders").param("search", prefix).param("cancellable", "true")
+                .with(user("viewer").authorities(new SimpleGrantedAuthority("MENU_ADMIN_ACCESS"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
     void listsCreatedOrdersBeforePaymentPreparationAndOrdersFromDifferentMembers() throws Exception {
         mvc.perform(get("/api/admin/orders").param("search", prefix).with(user("viewer")
                 .authorities(new SimpleGrantedAuthority("MENU_ADMIN_ACCESS"))))

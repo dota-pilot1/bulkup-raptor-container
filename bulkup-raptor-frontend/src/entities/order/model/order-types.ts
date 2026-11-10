@@ -1,5 +1,5 @@
 export type OrderStatus = "CREATED" | "PAID" | "CANCELLED";
-export type OrderFilter = "ALL" | OrderStatus;
+export type OrderFilter = "ALL" | OrderStatus | "CANCELLABLE";
 
 export type OrderDelivery = {
   recipientName: string;

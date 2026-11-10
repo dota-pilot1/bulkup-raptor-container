@@ -3,6 +3,8 @@ package com.bulkup.raptor.admin.application.service;
 import com.bulkup.raptor.admin.api.*;
 import com.bulkup.raptor.common.error.BusinessException;
 import com.bulkup.raptor.common.error.ErrorCode;
+import com.bulkup.raptor.delivery.domain.Delivery;
+import com.bulkup.raptor.delivery.domain.DeliveryStatus;
 import com.bulkup.raptor.delivery.repository.DeliveryRepository;
 import com.bulkup.raptor.order.application.service.OrderService;
 import com.bulkup.raptor.order.domain.Order;
@@ -32,6 +34,11 @@ public class AdminOrderQueryService {
 
     @Transactional(readOnly = true)
     public AdminOrderPageResponse list(int page, int size, String search, AdminOrderStatus status) {
+        return list(page, size, search, status, false);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminOrderPageResponse list(int page, int size, String search, AdminOrderStatus status, boolean cancellable) {
         String term = search.trim().toLowerCase(Locale.ROOT);
         Specification<Order> condition = (root, query, builder) -> {
             var predicates = new ArrayList<Predicate>();
@@ -48,7 +55,18 @@ public class AdminOrderQueryService {
                 }
                 predicates.add(match);
             }
-            if (status != null) predicates.add(builder.equal(root.get("status"), status.name()));
+            if (cancellable) {
+                predicates.add(builder.equal(root.get("status"), "PAID"));
+                predicates.add(builder.isFalse(root.get("paidCancellationPending")));
+                var preparing = query.subquery(Long.class);
+                var delivery = preparing.from(Delivery.class);
+                preparing.select(delivery.get("id")).where(
+                        builder.equal(delivery.get("order"), root),
+                        builder.equal(delivery.get("status"), DeliveryStatus.PREPARING));
+                predicates.add(builder.exists(preparing));
+            } else if (status != null) {
+                predicates.add(builder.equal(root.get("status"), status.name()));
+            }
             return builder.and(predicates.toArray(Predicate[]::new));
         };
         long total = orders.count(condition);
