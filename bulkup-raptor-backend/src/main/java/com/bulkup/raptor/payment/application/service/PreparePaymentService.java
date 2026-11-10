@@ -18,6 +18,7 @@ public class PreparePaymentService {
     private final MemberRepository members;
     private final OrderRepository orders;
     private final PaymentRepository payments;
+    private final com.bulkup.raptor.inventory.application.service.StockReservationService stock;
 
     public record Preparation(PreparePaymentResponse payment, boolean created) {}
 
@@ -27,7 +28,7 @@ public class PreparePaymentService {
         if (orderId == null || orderId <= 0)
             throw new BusinessException(ErrorCode.INVALID_INPUT);
 
-        // 주문 생성과 동일하게 회원 → 주문 순서로 잠근다.
+        // 회원 정지와 사용자 결제 준비를 직렬화한다. 재고 보호는 주문·상품 잠금이 담당한다.
         var member = members.findByIdForUpdate(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LOGIN_REQUIRED));
         if (member.getStatus() != MemberStatus.ACTIVE)
@@ -37,15 +38,29 @@ public class PreparePaymentService {
 
         // 새로고침·새 탭의 요청도 주문에 저장된 같은 결제 정보를 반환한다.
         var existing = payments.findByOrderId(orderId);
-        if (existing.isPresent())
-            return new Preparation(PreparePaymentResponse.from(existing.get()), false);
+        if (existing.isPresent() && existing.get().isKeepOrderOnRelease() && "CREATED".equals(order.getStatus())
+                && "RELEASED".equals(stock.snapshot(order).status())) {
+            var reservation = stock.reserveAgain(order);
+            existing.get().retire();
+            payments.flush();
+            var payment = payments.saveAndFlush(Payment.ready(order));
+            return new Preparation(PreparePaymentResponse.from(payment, reservation), true);
+        }
+        if (existing.isPresent()) {
+            var state = stock.snapshot(order);
+            if ("CREATED".equals(order.getStatus()) && existing.get().isKeepOrderOnRelease()
+                    && java.util.Set.of("RELEASE_PENDING", "REVIEW_REQUIRED").contains(state.status()))
+                return new Preparation(PreparePaymentResponse.from(existing.get(), state), false);
+            var reservation = stock.prepare(order, true);
+            return new Preparation(PreparePaymentResponse.from(existing.get(), reservation), false);
+        }
 
         if (!"CREATED".equals(order.getStatus()) || order.getItems().isEmpty()
                 || order.getTotalAmount() < 0 || order.getTotalAmount() > 9_007_199_254_740_991L)
             throw new BusinessException(ErrorCode.PAYMENT_ORDER_NOT_PAYABLE);
 
+        var reservation = stock.prepare(order, false);
         var payment = payments.saveAndFlush(Payment.ready(order));
-        // 결제 준비만 저장한다. 주문 상태와 장바구니는 변경하지 않는다.
-        return new Preparation(PreparePaymentResponse.from(payment), true);
+        return new Preparation(PreparePaymentResponse.from(payment, reservation), true);
     }
 }

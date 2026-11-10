@@ -35,7 +35,7 @@ test("legacy backend notes move with category, topic and document IDs intact", t
     { id: 10, space_id: 1 }, { id: 11, space_id: 2 }, { id: 12, space_id: 2 }, { id: 13, space_id: 3 },
   ]);
   assert.equal(db.prepare("SELECT name FROM playbook_spaces WHERE id=2").get().name, "백엔드 구조");
-  assert.equal(db.prepare("SELECT name FROM playbook_spaces WHERE id=3").get().name, "프론트엔드 구조");
+  assert.equal(db.prepare("SELECT name FROM playbook_spaces WHERE id=3").get().name, "프론트엔드");
 
   // Once migrated, later imports must respect the user's subsequent menu placement.
   db.prepare("UPDATE playbook_categories SET space_id=1 WHERE id=11").run();
@@ -51,5 +51,7 @@ test("new menus retain space codes and old menu links open the backend notes", (
   assert.equal(playbookModules["도메인 설계"].title, "백엔드 구조");
   assert.equal(playbookModules["백엔드·프론트 구조"].title, "백엔드 구조");
   assert.equal(playbookModuleLabelForDomain("DOMAIN"), "백엔드 구조");
-  assert.equal(playbookModuleLabelForDomain("APP_STRUCTURE"), "프론트엔드 구조");
+  assert.equal(playbookModuleLabelForDomain("APP_STRUCTURE"), "프론트엔드");
+  assert.deepEqual(playbookModules["DDD 아키텍처"], playbookModules["백엔드 구조"]);
+  assert.deepEqual(playbookModules["FSD 아키텍처"], playbookModules["프론트엔드 구조"]);
 });

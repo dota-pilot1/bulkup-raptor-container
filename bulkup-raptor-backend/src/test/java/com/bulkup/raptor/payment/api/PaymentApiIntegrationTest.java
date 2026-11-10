@@ -40,6 +40,7 @@ class PaymentApiIntegrationTest {
     @Autowired OrderRepository orders;
     @Autowired PaymentRepository payments;
     @Autowired PreparePaymentService service;
+    @Autowired com.bulkup.raptor.inventory.application.service.StockReservationService stock;
     @Autowired PasswordEncoder encoder;
     @Autowired TransactionTemplate transactions;
     @Autowired EntityManager entityManager;
@@ -56,7 +57,7 @@ class PaymentApiIntegrationTest {
     void setup() throws Exception {
         owner = member();
         product = products.saveAndFlush(Product.create("주문 당시 상품", "설명", 1200,
-                ProductCategory.SUPPLEMENT, null, "🥛"));
+                ProductCategory.SUPPLEMENT, null, "🥛", 100));
         productIds.add(product.getId());
         orderId = order(owner, false);
         client = login(owner);
@@ -66,6 +67,9 @@ class PaymentApiIntegrationTest {
     void cleanup() {
         transactions.executeWithoutResult(tx -> {
             for (Long id : memberIds) {
+                entityManager.createNativeQuery("delete from stock_adjustments where actor_id = :id").setParameter("id", id).executeUpdate();
+                entityManager.createNativeQuery("delete from stock_reservations where order_id in (select id from orders where member_id = :id)")
+                        .setParameter("id", id).executeUpdate();
                 entityManager.createNativeQuery("delete from payments where member_id = :id")
                         .setParameter("id", id).executeUpdate();
                 entityManager.createNativeQuery("delete from order_items where order_id in (select id from orders where member_id = :id)")
@@ -89,7 +93,7 @@ class PaymentApiIntegrationTest {
         assertThat(created.get("orderName").asText()).isEqualTo("주문 당시 상품");
         assertThat(created.get("totalAmount").asLong()).isEqualTo(5400);
         assertThat(created.get("currency").asText()).isEqualTo("KRW");
-        assertThat(created.size()).isEqualTo(4);
+        assertThat(created.size()).isEqualTo(6);
         assertThat(body(prepare(client, orderId), 200)).isEqualTo(created);
         assertThat(paymentCount()).isEqualTo(1);
         assertThat(payments.findById(created.get("paymentId").asText()).orElseThrow().getStatus().name()).isEqualTo("READY");
@@ -178,10 +182,11 @@ class PaymentApiIntegrationTest {
     void paidOrderReturnsExistingPaymentWithoutCreatingAnother() throws Exception {
         var created = body(prepare(client, orderId), 201);
         transactions.executeWithoutResult(tx -> {
+            stock.confirm(orders.findByIdAndMemberIdForUpdate(orderId, owner.getId()).orElseThrow());
             payments.findByOrderId(orderId).orElseThrow().markPaid(Instant.now(), "tx-replay", null, "KAKAOPAY");
             orders.findById(orderId).orElseThrow().markPaid();
         });
-        assertThat(body(prepare(client, orderId), 200)).isEqualTo(created);
+        assertThat(body(prepare(client, orderId), 200).get("inventoryStatus").asText()).isEqualTo("CONFIRMED");
         assertThat(paymentCount()).isEqualTo(1);
         assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo("PAID");
     }
@@ -192,7 +197,7 @@ class PaymentApiIntegrationTest {
             order.addItem(product, 2);
             if (multiple) {
                 var second = products.saveAndFlush(Product.create("두번째 상품", "설명", 1200,
-                        ProductCategory.SUPPLEMENT, null, "🥛"));
+                        ProductCategory.SUPPLEMENT, null, "🥛", 100));
                 productIds.add(second.getId());
                 order.addItem(second, 1);
             }

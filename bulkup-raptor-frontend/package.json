@@ -8,13 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "test:menu-access": "node --test scripts/test-menu-access.mjs",
+    "test:inventory": "node --test scripts/test-create-stock-adjustment.mjs scripts/test-stock-adjustments.mjs",
     "test:product-images": "node --test scripts/test-product-images.mjs",
-    "test:add-to-cart": "node --test scripts/test-add-to-cart.mjs",
+    "test:add-to-cart": "node --test scripts/test-add-to-cart.mjs scripts/test-product-availability.mjs",
     "test:cart-query": "node --test scripts/test-cart-query.mjs",
-    "test:cart": "node --test scripts/test-add-to-cart.mjs scripts/test-cart-query.mjs scripts/test-cart-drawer.mjs scripts/test-cart-header.mjs scripts/test-update-cart-quantity.mjs scripts/test-delete-cart-item.mjs",
-    "test:order": "node --test scripts/test-create-order.mjs scripts/test-order-history.mjs scripts/test-prepare-payment.mjs scripts/test-request-payment.mjs",
+    "test:cart": "node --test scripts/test-add-to-cart.mjs scripts/test-product-availability.mjs scripts/test-cart-query.mjs scripts/test-cart-drawer.mjs scripts/test-cart-header.mjs scripts/test-update-cart-quantity.mjs scripts/test-delete-cart-item.mjs",
+    "test:order": "node --test scripts/test-create-order.mjs scripts/test-order-history.mjs scripts/test-prepare-payment.mjs scripts/test-request-payment.mjs scripts/test-cancel-order.mjs",
     "test:addresses": "node --test scripts/test-addresses.mjs",
-    "test:payment": "node --test scripts/test-prepare-payment.mjs scripts/test-request-payment.mjs"
+    "test:payment": "node --test scripts/test-prepare-payment.mjs scripts/test-request-payment.mjs",
+    "test:delivery": "node --test scripts/test-delivery.mjs",
+    "test:cancellation-history": "node --test scripts/test-cancel-order.mjs scripts/test-admin-orders.mjs scripts/test-admin-cancellation-dialog.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

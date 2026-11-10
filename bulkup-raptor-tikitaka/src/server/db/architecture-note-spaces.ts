@@ -12,7 +12,13 @@ export function organizeArchitectureNoteSpaces(sqlite: Database.Database) {
 
     // HMR·재시작 시 사용자가 나중에 배치한 문서를 다시 이동하지 않는다.
     const migrate = backend.name === "도메인 설계" || frontend.name === "백엔드·프론트 구조";
-    if (!migrate) return;
+    if (!migrate) {
+      if (frontend.name === "프론트엔드 구조") {
+        sqlite.prepare("UPDATE playbook_spaces SET name = ?, updated_at = ? WHERE id = ?")
+          .run("프론트엔드", new Date().toISOString(), frontend.id);
+      }
+      return;
+    }
 
     const now = new Date().toISOString();
     const system = spaces.find((space) => space.code === "SYSTEM");
@@ -34,6 +40,6 @@ export function organizeArchitectureNoteSpaces(sqlite: Database.Database) {
     }
     const rename = sqlite.prepare("UPDATE playbook_spaces SET name = ?, updated_at = ? WHERE id = ?");
     rename.run("백엔드 구조", now, backend.id);
-    rename.run("프론트엔드 구조", now, frontend.id);
+    rename.run("프론트엔드", now, frontend.id);
   })();
 }

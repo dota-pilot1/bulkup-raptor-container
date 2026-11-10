@@ -1,22 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminNavigation } from "./admin-navigation";
-import { productCategories, type Product, type ProductInput } from "@/entities/product/model/product";
-import { ProductImagePreview } from "@/entities/product/ui/product-image-preview";
+import type { Product, ProductInput } from "@/entities/product/model/product";
 import { useImagePreview } from "@/entities/image/model/use-image-preview";
 import { canAccessAdmin, hasPermission } from "@/entities/session";
 import { currentMember, deleteProduct, listProducts } from "@/lib/api";
 import { useSaveProduct } from "@/features/product-registration/model/use-save-product";
 import { ProductEditorForm } from "./product-editor-form";
-import { Select } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { ProductManagementList } from "./product-management-list";
 
 // 기존 API의 필수 visual 필드에만 기본값을 전달한다. 화면에는 표시하지 않는다.
-const emptyForm: ProductInput = { name: "", description: "", price: 0, category: "SUPPLEMENT", badge: "", visual: "📦" };
-const inputClass = "w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10 disabled:bg-zinc-50";
+const emptyForm: ProductInput = { name: "", description: "", price: 0, category: "SUPPLEMENT", badge: "", visual: "📦", stockQuantity: 0 };
 
 export function ProductManagement() {
   const queryClient = useQueryClient();
@@ -27,9 +24,6 @@ export function ProductManagement() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ProductInput>(emptyForm);
   const [message, setMessage] = useState<{ text: string; isError?: boolean } | null>(null);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("ALL");
-  const [filters, setFilters] = useState({ search: "", category: "ALL" });
   const preview = useImagePreview();
   const editorRef = useRef<HTMLElement>(null);
   const selectedProduct = products.data?.find((product) => product.id === editingId);
@@ -85,15 +79,15 @@ export function ProductManagement() {
       setMessage({ text: "상품명, 설명, 1원 이상의 가격을 입력해 주세요.", isError: true });
       return;
     }
+    if (editingId === null && (!Number.isInteger(form.stockQuantity) || form.stockQuantity! < 0 || form.stockQuantity! > 2_147_483_647)) {
+      setMessage({ text: "초기 재고 수량은 0 이상 2,147,483,647 이하의 정수로 입력해 주세요.", isError: true });
+      return;
+    }
     setMessage(null);
     void saving.save({ id: editingId, file: preview.selectedFile,
       input: { ...form, name: form.name.trim(), description: form.description.trim(), badge: form.badge.trim(), visual: form.visual.trim() || emptyForm.visual } });
   }
 
-  const filtered = useMemo(() => (products.data ?? []).filter((product) =>
-    (filters.category === "ALL" || product.category === filters.category) &&
-    `${product.name} ${product.description}`.toLowerCase().includes(filters.search.toLowerCase()))
-    .sort((a, b) => b.id - a.id), [products.data, filters]);
 
   if (session.isPending) return <main className="px-6 py-16 text-sm text-zinc-500">계정 확인 중입니다.</main>;
   if (!canView) return <main className="mx-auto max-w-3xl px-6 py-16">
@@ -108,57 +102,20 @@ export function ProductManagement() {
       <div className="min-w-0 flex-1 space-y-5">
         {!canManage && <p role="status" className="rounded-xl bg-zinc-100 p-3 text-sm text-zinc-600">조회 전용입니다. 등록·수정·삭제에는 상품 관리 권한이 필요합니다.</p>}
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
-          <section aria-label="상품 목록" className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs">
-            <div className="border-b border-zinc-100 p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-bold text-zinc-950">상품 목록 <span className="ml-1 text-sm font-medium text-zinc-400">{filtered.length}</span></h2>
-                <span className="text-xs text-zinc-400">전체 {products.data?.length ?? 0}개</span>
-              </div>
-              <form role="search" aria-label="상품 검색" onSubmit={(event) => {
-                event.preventDefault(); setFilters({ search: search.trim(), category });
-              }} className="space-y-2.5">
-                <input type="search" aria-label="상품명 또는 설명 검색" placeholder="상품명 또는 설명 검색" value={search}
-                  onChange={(event) => setSearch(event.target.value)} className={inputClass}
-                  onKeyDown={(event) => { if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }} />
-                <div className="flex flex-wrap gap-2">
-                  <div className="min-w-0 flex-1">
-                    <Select aria-label="상품 카테고리 필터" value={category} onChange={setCategory}
-                      options={[{ value: "ALL", label: "전체 카테고리" }, ...productCategories]} />
-                  </div>
-                  <button type="submit" className="rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white">검색</button>
-                  <button type="button" onClick={() => { setSearch(""); setCategory("ALL"); setFilters({ search: "", category: "ALL" }); }}
-                    className="rounded-xl border border-zinc-200 px-3 text-xs font-semibold text-zinc-600">초기화</button>
-                </div>
-              </form>
-            </div>
-            <div className="divide-y divide-zinc-100">
-              {products.isPending && <p className="p-6 text-sm text-zinc-500">상품 데이터를 불러오는 중입니다...</p>}
-              {products.isError && <p role="alert" className="p-6 text-sm text-rose-600">상품 목록을 불러오지 못했습니다.</p>}
-              {!products.isPending && !products.isError && !filtered.length && <p className="p-8 text-center text-sm text-zinc-500">조건에 일치하는 상품이 없습니다.</p>}
-              {filtered.map((product) => <article key={product.id}
-                className={`relative flex flex-wrap items-center gap-3 p-4 transition ${editingId === product.id ? "bg-emerald-50 ring-1 ring-inset ring-emerald-200" : "hover:bg-zinc-50"}`}>
-                <button type="button" disabled={!canManage || busy} onClick={() => editProduct(product)}
-                  aria-label={`${product.name} 선택하여 수정`} aria-pressed={editingId === product.id} aria-controls="product-editor"
-                  className="absolute inset-0 cursor-pointer focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 disabled:cursor-default" />
-                <ProductImagePreview product={product} compact sizes="56px"
-                  className={`relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-zinc-100 ${product.imageUrl ? "z-10" : "pointer-events-none"}`} />
-                <div className="pointer-events-none relative min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-emerald-700">{product.categoryLabel}</span>
-                    {product.badge && <Badge size="sm">{product.badge}</Badge>}</div>
-                  <h3 className="mt-1 truncate text-sm font-bold text-zinc-900">{product.name}</h3>
-                  <p className="mt-0.5 truncate text-xs text-zinc-500">{product.description}</p>
-                  <p className="mt-2 text-sm font-bold text-zinc-900">{product.price.toLocaleString("ko-KR")}원</p>
-                </div>
-                <div className="relative z-10 flex shrink-0 items-center gap-1">
-                  <button type="button" disabled={!canManage || busy} onClick={() => editProduct(product)}
-                    aria-label={`${product.name} 수정`} className="rounded-lg px-2.5 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-40">수정</button>
-                  <button type="button" disabled={!canManage || busy} aria-label={`${product.name} 삭제`}
-                    onClick={() => { if (window.confirm(`'${product.name}' 상품을 정말 삭제하시겠습니까?`)) removal.mutate(product.id); }}
-                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-40">삭제</button>
-                </div>
-              </article>)}
-            </div>
-          </section>
+          <ProductManagementList products={products.data ?? []} isPending={products.isPending} isError={products.isError}
+            selectedId={editingId} onSelect={editProduct} selectionLabel="선택하여 수정" controls="product-editor"
+            selectionDisabled={!canManage || busy} onRetry={() => void products.refetch()}
+            renderActions={(product) => <>
+              <button type="button" disabled={!canManage || busy} onClick={() => editProduct(product)}
+                aria-label={`${product.name} 수정`} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-40">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m16 3 5 5M4 20l4-1L21 6a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" /></svg>
+                수정</button>
+              <button type="button" disabled={!canManage || busy} aria-label={`${product.name} 삭제`}
+                onClick={() => { if (window.confirm(`'${product.name}' 상품을 정말 삭제하시겠습니까?`)) removal.mutate(product.id); }}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:opacity-40">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg>
+                삭제</button>
+            </>} />
 
           <ProductEditorForm editingId={editingId} form={form} onChange={setForm}
             selectedProduct={selectedProduct} preview={preview} canManage={canManage} busy={busy}

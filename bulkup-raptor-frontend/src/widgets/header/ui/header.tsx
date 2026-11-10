@@ -51,6 +51,7 @@ export function Header({ fullWidth = false, initialCartOpen = false }: { fullWid
       queryClient.setQueryData(["me"], null);
       queryClient.removeQueries({ queryKey: ["cart"] });
       queryClient.removeQueries({ queryKey: ["orders"] });
+      queryClient.removeQueries({ queryKey: ["deliveries"] });
       queryClient.removeQueries({ queryKey: ["default-delivery"] });
       await queryClient.invalidateQueries({ queryKey: ["me"] });
     },
@@ -63,6 +64,7 @@ export function Header({ fullWidth = false, initialCartOpen = false }: { fullWid
     queryClient.setQueryData(["me"], null);
     queryClient.removeQueries({ queryKey: ["cart"] });
       queryClient.removeQueries({ queryKey: ["orders"] });
+      queryClient.removeQueries({ queryKey: ["deliveries"] });
       queryClient.removeQueries({ queryKey: ["default-delivery"] });
   }, [cart.error, memberId, queryClient]);
 
@@ -113,12 +115,18 @@ export function Header({ fullWidth = false, initialCartOpen = false }: { fullWid
             <span className="mx-1 hidden h-5 w-px bg-zinc-200 sm:block" aria-hidden="true" />
 
             {showAdminMenu && (
+              <nav aria-label="운영 업무" className="hidden items-center gap-1.5 lg:flex">
               <Link
                 href="/admin"
                 className="hidden h-10 items-center justify-center rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 lg:inline-flex"
               >
-                관리
+                운영 관리
               </Link>
+              <Link href="/admin/deliveries"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                배송 관리
+              </Link>
+              </nav>
             )}
 
             {member.data ? (
@@ -171,11 +179,15 @@ export function Header({ fullWidth = false, initialCartOpen = false }: { fullWid
                             role="menuitem"
                             className="flex min-h-10 items-center justify-between gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950"
                           >
-                            관리자 페이지
+                            운영 관리
                             <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 17 17 7M7 7h10v10" />
                             </svg>
                           </a>
+                          <Link href="/admin/deliveries" role="menuitem" onClick={() => setIsAccountOpen(false)}
+                            className="flex min-h-10 items-center rounded-lg px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50">
+                            배송 관리
+                          </Link>
                         </div>
                       )}
                       <div role="separator" className="mx-2 my-1 h-px bg-zinc-100" />

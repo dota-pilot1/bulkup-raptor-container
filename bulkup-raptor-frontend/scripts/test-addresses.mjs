@@ -79,6 +79,8 @@ test('empty address book offers first address creation', () => {
 const orderSchemaUrl = moduleUrl('../src/features/create-order/model/order-form-schema.ts', { zod: import.meta.resolve('zod'), '@/entities/delivery/model/schema': schemaUrl });
 const { OrderForm } = await import(moduleUrl('../src/features/create-order/ui/order-form.tsx', {
   ...reactImports,
+  '@/shared/api/client': moduleUrl('../src/shared/api/client.ts'),
+  '@/shared/ui/dialog': moduleUrl('../src/shared/ui/dialog.tsx', reactImports),
   'next/navigation': dataUrl('export const useRouter=()=>({push:()=>{},replace:()=>{}})'),
   '@/entities/product/ui/product-visual': dataUrl('export const ProductVisual=()=>null'),
   '@/entities/order/model/order-amounts': moduleUrl('../src/entities/order/model/order-amounts.ts'),

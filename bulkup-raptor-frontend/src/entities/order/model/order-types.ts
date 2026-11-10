@@ -1,3 +1,6 @@
+export type OrderStatus = "CREATED" | "PAID" | "CANCELLED";
+export type OrderFilter = "ALL" | OrderStatus;
+
 export type OrderDelivery = {
   recipientName: string;
   phone: string;
@@ -14,7 +17,11 @@ export type CreateOrderRequest = OrderDelivery & {
 
 export type OrderResponse = {
   orderId: number;
-  status: "CREATED" | "PAID";
+  status: OrderStatus;
+  cancellationPending?: boolean;
+  inventoryStatus?: string;
+  deliveryStatus?: "PREPARING" | "OUT_FOR_DELIVERY" | "DELIVERED" | null;
+  cancellationReason?: string | null;
   items: { productId: number | null; productName: string; unitPrice: number; quantity: number; lineTotal: number }[];
   itemsTotal: number;
   shippingFee: number;
@@ -23,7 +30,7 @@ export type OrderResponse = {
   createdAt: string;
 };
 
-export type OrderSummary = Pick<OrderResponse, "orderId" | "status" | "totalAmount" | "createdAt"> & {
+export type OrderSummary = Pick<OrderResponse, "orderId" | "status" | "totalAmount" | "createdAt" | "cancellationPending" | "deliveryStatus"> & {
   items: { productName: string; quantity: number }[];
 };
 export type OrderPage = { content: OrderSummary[]; page: number; totalPages: number; totalElements: number };

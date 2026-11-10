@@ -36,7 +36,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "app.stock.reservation.expiry.enabled=false")
 class PaymentVerificationApiIntegrationTest {
     @LocalServerPort int port;
     @Autowired MemberRepository members;
@@ -44,7 +44,12 @@ class PaymentVerificationApiIntegrationTest {
     @Autowired ProductRepository products;
     @Autowired OrderRepository orders;
     @Autowired PaymentRepository payments;
+    @Autowired com.bulkup.raptor.delivery.repository.DeliveryRepository deliveries;
     @Autowired PreparePaymentService service;
+    @Autowired com.bulkup.raptor.inventory.repository.StockReservationRepository reservations;
+    @Autowired com.bulkup.raptor.inventory.application.service.StockAdjustmentCommandService adjustments;
+    @Autowired com.bulkup.raptor.product.service.ProductService productService;
+    @Autowired com.bulkup.raptor.payment.application.service.CancelUnpaidPaymentService cancellations;
     @Autowired PasswordEncoder encoder;
     @Autowired TransactionTemplate transactions;
     @Autowired EntityManager entityManager;
@@ -62,7 +67,7 @@ class PaymentVerificationApiIntegrationTest {
         fakeStatus = 200; overrides.clear(); calls.set(0); delayFirst = false;
         owner = member();
         product = products.saveAndFlush(Product.create("주문 당시 상품", "설명", 1200,
-                ProductCategory.SUPPLEMENT, null, "🥛"));
+                ProductCategory.SUPPLEMENT, null, "🥛", 100));
         productIds.add(product.getId());
         orderId = order(owner, false);
         client = login(owner);
@@ -72,6 +77,9 @@ class PaymentVerificationApiIntegrationTest {
     void cleanup() {
         transactions.executeWithoutResult(tx -> {
             for (Long id : memberIds) {
+                entityManager.createNativeQuery("delete from stock_adjustments where actor_id = :id").setParameter("id", id).executeUpdate();
+                entityManager.createNativeQuery("delete from stock_reservations where order_id in (select id from orders where member_id = :id)")
+                        .setParameter("id", id).executeUpdate();
                 entityManager.createNativeQuery("delete from payments where member_id = :id")
                         .setParameter("id", id).executeUpdate();
                 entityManager.createNativeQuery("delete from order_items where order_id in (select id from orders where member_id = :id)")
@@ -100,6 +108,11 @@ class PaymentVerificationApiIntegrationTest {
             server.createContext("/payments/", exchange -> {
                 int number = calls.incrementAndGet();
                 String id = exchange.getRequestURI().getPath().substring("/payments/".length());
+                if ("POST".equals(exchange.getRequestMethod()) && id.endsWith("/cancel") && fakeStatus == 200) {
+                    id = id.substring(0, id.length() - "/cancel".length());
+                    overrides.put("status", "CANCELLED");
+                    overrides.put("amount", Map.of("total", 5400, "cancelled", 5400));
+                }
                 var data = new HashMap<String, Object>();
                 data.put("id", id); data.put("storeId", "store-test"); data.put("channel", Map.of("key", "channel-key-test"));
                 data.put("status", "PAID"); data.put("amount", Map.of("total", 5400, "cancelled", 0));
@@ -143,6 +156,7 @@ class PaymentVerificationApiIntegrationTest {
     }
     String path(String paymentId) { return "/api/orders/" + orderId + "/payments/" + paymentId + "/verify"; }
     void assertUnpaid(String id) {
+        assertThat(deliveries.findByOrderId(orderId)).isEmpty();
         assertThat(payments.findById(id).orElseThrow().getWebhookVerifiedAt()).isNull();
         assertThat(payments.findById(id).orElseThrow().getStatus().name()).isEqualTo("READY");
         assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo("CREATED");
@@ -156,7 +170,7 @@ class PaymentVerificationApiIntegrationTest {
         assertThat(result.get("totalAmount").asLong()).isEqualTo(5400);
         assertThat(result.get("transactionId").asText()).isEqualTo("tx-test");
         assertThat(result.get("paidAt").asText()).isEqualTo("2026-11-01T04:00:00Z");
-        assertThat(result.get("canRetry").asBoolean()).isFalse();
+        assertThat(result.get("canOpenPaymentWindow").asBoolean()).isFalse();
         assertThat(body(verify(client, path(id)), 200)).isEqualTo(result);
         assertThat(body(verify(client, "/api/orders/" + orderId + "/payments/verify"), 200)).isEqualTo(result);
         assertThat(body(verify(client, "/api/payments/" + id + "/verify"), 200)).isEqualTo(result);
@@ -195,11 +209,11 @@ class PaymentVerificationApiIntegrationTest {
         for (var status : List.of("READY", "FAILED", "PENDING", "VIRTUAL_ACCOUNT_ISSUED", "CANCELLED", "PARTIAL_CANCELLED")) {
             overrides.put("status", status);
             var result = body(verify(client, path(id)), 200);
-            assertThat(result.get("canRetry").asBoolean()).isEqualTo(Set.of("READY", "FAILED").contains(status));
+            assertThat(result.get("canOpenPaymentWindow").asBoolean()).isEqualTo(Set.of("READY", "FAILED").contains(status));
             assertUnpaid(id);
         }
         fakeStatus = 404; overrides.put("type", "PAYMENT_NOT_FOUND");
-        assertThat(body(verify(client, path(id)), 200).get("canRetry").asBoolean()).isTrue();
+        assertThat(body(verify(client, path(id)), 200).get("canOpenPaymentWindow").asBoolean()).isTrue();
         overrides.put("type", "UnknownError");
         assertThat(verify(client, path(id)).statusCode()).isEqualTo(502);
         for (int status : List.of(302, 401, 500)) {
@@ -249,6 +263,493 @@ class PaymentVerificationApiIntegrationTest {
         } finally { releaseFirst.countDown(); }
         assertThat(payments.findById(id).orElseThrow().getStatus().name()).isEqualTo("PAID");
         assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo("PAID");
+    }
+
+    @Test void cancellingBeforePaymentPreparationIsIdempotentAndDoesNotTouchInventory() throws Exception {
+        assertThat(body(cancel(client), 200).get("orderStatus").asText()).isEqualTo("CANCELLED");
+        body(cancel(client), 200);
+        assertThat(calls).hasValue(0);
+        assertThat(prepare(client, orderId).statusCode()).isEqualTo(409);
+        assertInventory(100, 0, 0);
+    }
+
+    JsonNode readOrder() throws Exception {
+        return body(client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/orders/" + orderId))
+                .GET().build(), HttpResponse.BodyHandlers.ofString()), 200);
+    }
+
+    @Test void cancelledOrderRemainsReadableAndListedWithoutDeletingHistory() throws Exception {
+        body(cancel(client), 200);
+        var saved = readOrder();
+        assertThat(saved.get("status").asText()).isEqualTo("CANCELLED");
+        assertThat(saved.get("cancellationPending").asBoolean()).isFalse();
+        assertThat(saved.get("items").size()).isEqualTo(1);
+        var history = body(client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/orders"))
+                .GET().build(), HttpResponse.BodyHandlers.ofString()), 200);
+        assertThat(history.get("content").get(0).get("status").asText()).isEqualTo("CANCELLED");
+        assertThat(orders.findById(orderId)).isPresent();
+        assertThat(payments.findByOrderId(orderId)).isEmpty();
+        assertInventory(100, 0, 0);
+    }
+
+    @Test void paidWebhookClearsUnpaidPendingThenPreparingOrderCanBeCancelled() throws Exception {
+        var id = prepared();
+        fakeStatus = 500;
+        body(cancel(client), 202);
+        var pending = readOrder();
+        assertThat(pending.get("status").asText()).isEqualTo("CREATED");
+        assertThat(pending.get("cancellationPending").asBoolean()).isTrue();
+        var waiting = body(client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/orders?status=CREATED"))
+                .GET().build(), HttpResponse.BodyHandlers.ofString()), 200);
+        assertThat(waiting.get("content").get(0).get("cancellationPending").asBoolean()).isTrue();
+        assertInventory(100, 2, 0);
+        fakeStatus = 200;
+        body(webhook(paidEvent(id)), 200);
+        var paid = readOrder();
+        assertThat(paid.get("status").asText()).isEqualTo("PAID");
+        assertThat(paid.get("cancellationPending").asBoolean()).isFalse();
+        assertInventory(98, 0, 1);
+        assertThat(body(cancel(client), 200).get("orderStatus").asText()).isEqualTo("CANCELLED");
+        assertInventory(100, 0, 2);
+    }
+
+    @Test void legacyOrderWithoutAnyPaymentCanBeCancelledButPreparedLegacyOrderIsProtected() throws Exception {
+        transactions.executeWithoutResult(tx -> entityManager.createNativeQuery("update orders set inventory_managed=false where id=:id")
+                .setParameter("id", orderId).executeUpdate());
+        assertThat(body(cancel(client), 200).get("orderStatus").asText()).isEqualTo("CANCELLED");
+        body(cancel(client), 200);
+        assertThat(readOrder().get("status").asText()).isEqualTo("CANCELLED");
+        orderId = order(owner, false);
+        transactions.executeWithoutResult(tx -> {
+            payments.saveAndFlush(Payment.ready(orders.findById(orderId).orElseThrow()));
+            entityManager.createNativeQuery("update orders set inventory_managed=false where id=:id")
+                    .setParameter("id", orderId).executeUpdate();
+        });
+        assertThat(body(cancel(client), 409).get("code").asText()).isEqualTo("STOCK_LEGACY_ORDER");
+        assertThat(readOrder().get("status").asText()).isEqualTo("CREATED");
+        assertThat(calls).hasValue(0);
+        assertInventory(100, 0, 0);
+    }
+
+    @Test void databaseRejectsReservedQuantityOutsidePhysicalStock() throws Exception {
+        prepared();
+        for (int invalid : List.of(-1, 101)) {
+            assertThatThrownBy(() -> transactions.executeWithoutResult(tx -> entityManager.createNativeQuery(
+                    "update products set reserved_quantity=:quantity where id=:id")
+                    .setParameter("quantity", invalid).setParameter("id", product.getId()).executeUpdate()))
+                    .isInstanceOf(RuntimeException.class);
+        }
+        assertInventory(100, 2, 0);
+    }
+
+    @Test void reservationReplayKeepsOneHoldAndOriginalDeadline() throws Exception {
+        var id = prepared();
+        var before = reservations.findByOrderIdOrderByProductIdAsc(orderId).getFirst();
+        var response = body(prepare(client, orderId), 200);
+        assertThat(response.get("paymentId").asText()).isEqualTo(id);
+        assertThat(response.get("inventoryStatus").asText()).isEqualTo("RESERVED");
+        assertThat(reservations.findByOrderIdOrderByProductIdAsc(orderId)).hasSize(1);
+        assertThat(reservations.findByOrderIdOrderByProductIdAsc(orderId).getFirst().getExpiresAt()).isEqualTo(before.getExpiresAt());
+        assertInventory(100, 2, 0);
+    }
+
+    @Test void lastTwoUnitsCanBeReservedByOnlyOneConcurrentBuyer() throws Exception {
+        transactions.executeWithoutResult(tx -> products.findByIdForStockAdjustment(product.getId()).orElseThrow().adjustStock(-98));
+        var other = member();
+        long otherOrder = order(other, false);
+        var gate = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> { gate.await(); return preparationOutcome(owner.getId(), orderId); });
+            var second = executor.submit(() -> { gate.await(); return preparationOutcome(other.getId(), otherOrder); });
+            gate.countDown();
+            assertThat(List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder("RESERVED", "STOCK_INSUFFICIENT");
+        }
+        assertInventory(2, 2, 0);
+        assertThat(reservations.findByOrderIdOrderByProductIdAsc(orderId).size()
+                + reservations.findByOrderIdOrderByProductIdAsc(otherOrder).size()).isEqualTo(1);
+    }
+
+    String preparationOutcome(Long memberId, Long targetOrderId) {
+        try { service.prepare(memberId, targetOrderId); return "RESERVED"; }
+        catch (com.bulkup.raptor.common.error.BusinessException error) { return error.getErrorCode().name(); }
+    }
+
+    @Test void insufficientSecondProductRollsBackEntireReservationAndPayment() {
+        long multi = order(owner, true);
+        Long secondProduct = productIds.getLast();
+        transactions.executeWithoutResult(tx -> products.findByIdForStockAdjustment(secondProduct).orElseThrow().adjustStock(-100));
+        assertThat(preparationOutcome(owner.getId(), multi)).isEqualTo("STOCK_INSUFFICIENT");
+        assertThat(reservations.findByOrderIdOrderByProductIdAsc(multi)).isEmpty();
+        assertThat(payments.findByOrderId(multi)).isEmpty();
+        assertInventory(100, 0, 0);
+    }
+
+    @Test void manualDecreaseCannotConsumeReservedUnits() throws Exception {
+        prepared();
+        assertThatThrownBy(() -> adjustments.create(product.getId(), owner.getId(),
+                new com.bulkup.raptor.inventory.api.StockAdjustmentRequest(-99, "예약분 침범")))
+                .extracting("errorCode").isEqualTo(com.bulkup.raptor.common.error.ErrorCode.STOCK_INSUFFICIENT);
+        assertInventory(100, 2, 0);
+    }
+
+    @Test void parallelPaidBrowserAndWebhookDeductAndRecordExactlyOnce() throws Exception {
+        var id = prepared();
+        var gate = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var browser = executor.submit(() -> { gate.await(); return verify(client, path(id)); });
+            var notification = executor.submit(() -> { gate.await(); return webhook(paidEvent(id)); });
+            gate.countDown();
+            body(browser.get(20, TimeUnit.SECONDS), 200);
+            body(notification.get(20, TimeUnit.SECONDS), 200);
+        }
+        assertInventory(98, 0, 1);
+        transactions.executeWithoutResult(tx -> {
+            Object[] row = (Object[]) entityManager.createNativeQuery(
+                    "select order_id, cause, delta, before_quantity, after_quantity from stock_adjustments where product_id = :id")
+                    .setParameter("id", product.getId()).getSingleResult();
+            assertThat(((Number) row[0]).longValue()).isEqualTo(orderId);
+            assertThat(row[1]).isEqualTo("ORDER_SALE");
+            assertThat(((Number) row[2]).intValue()).isEqualTo(-2);
+            assertThat(((Number) row[3]).intValue()).isEqualTo(100);
+            assertThat(((Number) row[4]).intValue()).isEqualTo(98);
+        });
+    }
+
+    @Test void paymentPreparationWaitsForSuspensionAndRejectsAfterItCommits() throws Exception {
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            Future<String> preparation = transactions.execute(tx -> {
+                var member = members.findByIdForUpdate(owner.getId()).orElseThrow();
+                var started = new CountDownLatch(1);
+                var task = executor.submit(() -> {
+                    started.countDown();
+                    return preparationOutcome(owner.getId(), orderId);
+                });
+                try {
+                    assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+                    assertThatThrownBy(() -> task.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+                } catch (InterruptedException error) { throw new RuntimeException(error); }
+                member.updateStatus(com.bulkup.raptor.auth.domain.MemberStatus.SUSPENDED);
+                return task;
+            });
+            assertThat(preparation.get(5, TimeUnit.SECONDS)).isEqualTo("MEMBER_SUSPENDED");
+        }
+        assertThat(payments.findByOrderId(orderId)).isEmpty();
+        assertInventory(100, 0, 0);
+    }
+
+    @Test void browserVerificationRechecksSuspensionAfterProviderLookup() throws Exception {
+        var id = prepared();
+        firstStarted = new CountDownLatch(1); releaseFirst = new CountDownLatch(1); delayFirst = true;
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var verification = executor.submit(() -> verify(client, path(id)));
+            try {
+                assertThat(firstStarted.await(10, TimeUnit.SECONDS)).isTrue();
+                transactions.executeWithoutResult(tx -> members.findByIdForUpdate(owner.getId()).orElseThrow()
+                        .updateStatus(com.bulkup.raptor.auth.domain.MemberStatus.SUSPENDED));
+            } finally { releaseFirst.countDown(); }
+            assertThat(verification.get(10, TimeUnit.SECONDS).statusCode()).isEqualTo(403);
+        }
+        assertUnpaid(id);
+        assertInventory(100, 2, 0);
+        overrides.clear();
+        body(webhook(paidEvent(id)), 200);
+        assertInventory(98, 0, 1);
+    }
+
+    // Hold a member write lock while background work runs in a separate transaction.
+    <T> T whileMemberLocked(Callable<T> action) {
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            return transactions.execute(tx -> {
+                members.findByIdForUpdate(owner.getId()).orElseThrow();
+                var task = executor.submit(action);
+                try { return task.get(5, TimeUnit.SECONDS); }
+                catch (Exception error) { throw new AssertionError("Background work waited on member lock", error); }
+            });
+        }
+    }
+
+    @Test void paidWebhookDoesNotWaitForMemberStatusLock() throws Exception {
+        var id = prepared();
+        assertThat(whileMemberLocked(() -> webhook(paidEvent(id))).statusCode()).isEqualTo(200);
+        assertInventory(98, 0, 1);
+        assertThat(payments.findById(id).orElseThrow().getWebhookVerifiedAt()).isNotNull();
+    }
+
+    void expireReservation() {
+        transactions.executeWithoutResult(tx -> entityManager.createNativeQuery(
+                "update stock_reservations set expires_at=:now where order_id=:id")
+                .setParameter("now", Instant.now().minusSeconds(30)).setParameter("id", orderId).executeUpdate());
+    }
+
+    @Test void expiredCancellationReleasesWithoutWaitingForMemberLock() throws Exception {
+        prepared();
+        expireReservation();
+        overrides.put("status", "CANCELLED");
+        overrides.put("amount", Map.of("total", 5400, "cancelled", 5400));
+        var result = whileMemberLocked(() -> cancellations.reconcileExpired(orderId));
+        assertThat(result.inventoryStatus()).isEqualTo("RELEASED");
+        assertThat(result.orderStatus()).isEqualTo("CANCELLED");
+        assertInventory(100, 0, 0);
+    }
+
+    @Test void failedExpiryLookupKeepsHoldWithoutWaitingForMemberLock() throws Exception {
+        prepared();
+        expireReservation();
+        fakeStatus = 500;
+        var result = whileMemberLocked(() -> cancellations.reconcileExpired(orderId));
+        assertThat(result.inventoryStatus()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(result.pending()).isTrue();
+        assertInventory(100, 2, 0);
+    }
+
+    @Test void cancelledProviderReleasesOnceAndPreventsReusingPayment() throws Exception {
+        var id = prepared();
+        overrides.put("status", "CANCELLED");
+        overrides.put("amount", Map.of("total", 5400, "cancelled", 5400));
+        var result = body(cancel(client), 200);
+        assertThat(result.get("inventoryStatus").asText()).isEqualTo("RELEASED");
+        assertThat(result.get("orderStatus").asText()).isEqualTo("CANCELLED");
+        body(cancel(client), 200);
+        assertInventory(100, 0, 0);
+        assertThat(prepare(client, orderId).statusCode()).isEqualTo(409);
+        overrides.clear(); // A delayed paid notification must never consume somebody else's stock.
+        var late = body(verify(client, path(id)), 200);
+        assertThat(late.get("paymentStatus").asText()).isEqualTo("CANCELLED");
+        assertThat(late.get("orderStatus").asText()).isEqualTo("CANCELLED");
+        assertInventory(100, 0, 0);
+    }
+
+    @Test void failedPaymentWindowKeepsOrderAndSupportsOneClickRetry() throws Exception {
+        var id = prepared();
+        overrides.put("status", "FAILED");
+        var result = body(verify(client, "/api/orders/" + orderId + "/payments/release-reservation"), 202);
+        assertThat(result.get("orderStatus").asText()).isEqualTo("CREATED");
+        assertThat(readOrder().get("cancellationPending").asBoolean()).isFalse();
+        assertThat(readOrder().get("cancellationReason").isNull()).isTrue();
+        var list = body(client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/orders"))
+                .GET().build(), HttpResponse.BodyHandlers.ofString()), 200);
+        assertThat(list.get("content").get(0).get("cancellationPending").asBoolean()).isFalse();
+        assertThat(body(prepare(client, orderId), 200).get("paymentId").asText()).isEqualTo(id);
+        var verified = body(verify(client, path(id)), 200);
+        assertThat(verified.get("canOpenPaymentWindow").asBoolean()).isTrue();
+        assertThat(verified.get("inventoryStatus").asText()).isEqualTo("RESERVED");
+        assertInventory(100, 2, 0);
+    }
+
+    @Test void orderCancellationAfterFailedPaymentFinishesAndLatePaidIsRefunded() throws Exception {
+        var id = prepared();
+        overrides.put("status", "FAILED");
+        var result = body(cancel(client), 200);
+        assertThat(result.get("orderStatus").asText()).isEqualTo("CANCELLED");
+        assertThat(result.get("pending").asBoolean()).isFalse();
+        assertInventory(100, 0, 0);
+        overrides.clear();
+        body(webhook(paidEvent(id)), 200);
+        assertThat(readOrder().get("status").asText()).isEqualTo("CANCELLED");
+        assertThat(readOrder().get("cancellationPending").asBoolean()).isFalse();
+        assertThat(deliveries.findByOrderId(orderId)).isEmpty();
+        body(webhook(paidEvent(id)), 200);
+        assertInventory(100, 0, 0);
+    }
+
+    @Test void releaseReservationKeepsOrderAndReusesReservationWithNewPaymentId() throws Exception {
+        var oldPaymentId = prepared();
+        var reservationId = reservations.findByOrderIdOrderByProductIdAsc(orderId).getFirst().getId();
+        overrides.put("status", "CANCELLED");
+        overrides.put("amount", Map.of("total", 5400, "cancelled", 5400));
+
+        var released = body(releaseReservation(), 200);
+        assertThat(released.get("inventoryStatus").asText()).isEqualTo("RELEASED");
+        assertThat(released.get("orderStatus").asText()).isEqualTo("CREATED");
+        assertInventory(100, 0, 0);
+
+        var nextId = body(prepare(client, orderId), 201).get("paymentId").asText();
+        assertThat(nextId).isNotEqualTo(oldPaymentId);
+        var reservation = reservations.findByOrderIdOrderByProductIdAsc(orderId).getFirst();
+        assertThat(reservation.getId()).isEqualTo(reservationId);
+        assertThat(reservation.getStatus().name()).isEqualTo("RESERVED");
+        assertThat(reservation.getReleasedAt()).isNull();
+        assertThat(body(prepare(client, orderId), 200).get("paymentId").asText()).isEqualTo(nextId);
+        assertInventory(100, 2, 0);
+
+        overrides.clear();
+        assertThat(verify(client, path(oldPaymentId)).statusCode()).isEqualTo(409);
+        body(webhook(paidEvent(oldPaymentId)), 200);
+        assertInventory(100, 2, 0);
+        body(verify(client, path(nextId)), 200);
+        assertInventory(98, 0, 1);
+    }
+
+    @Test void retryWithInsufficientStockKeepsOldReservationReleased() throws Exception {
+        var oldPaymentId = prepared();
+        overrides.put("status", "CANCELLED");
+        overrides.put("amount", Map.of("total", 5400, "cancelled", 5400));
+        body(releaseReservation(), 200);
+
+        transactions.executeWithoutResult(tx -> products.findByIdForStockAdjustment(product.getId())
+                .orElseThrow().adjustStock(-99));
+
+        var response = prepare(client, orderId);
+        assertThat(response.statusCode()).isEqualTo(409);
+        assertThat(response.body()).contains("STOCK_INSUFFICIENT");
+        assertThat(payments.findByOrderId(orderId).orElseThrow().getPaymentId()).isEqualTo(oldPaymentId);
+        assertThat(reservations.findByOrderIdOrderByProductIdAsc(orderId).getFirst().getStatus().name())
+                .isEqualTo("RELEASED");
+        assertInventory(1, 0, 0);
+    }
+
+    @Test void releaseReservationKeepsHoldWhenProviderCannotConfirmCancellation() throws Exception {
+        prepared();
+        fakeStatus = 404;
+        overrides.put("type", "PAYMENT_NOT_FOUND");
+        assertThat(body(releaseReservation(), 202).get("inventoryStatus").asText()).isEqualTo("REVIEW_REQUIRED");
+        assertInventory(100, 2, 0);
+
+        fakeStatus = 200;
+        overrides.put("status", "CANCELLED");
+        overrides.put("amount", Map.of("total", 5400, "cancelled", 5400));
+        assertThat(cancellations.reconcileExpired(orderId).orderStatus()).isEqualTo("CREATED");
+        assertInventory(100, 0, 0);
+    }
+
+    HttpResponse<String> releaseReservation() throws Exception {
+        return verify(client, "/api/orders/" + orderId + "/payments/release-reservation");
+    }
+
+    @Test void missingRemotePaymentKeepsHoldForReviewAndLaterPaidCanConfirm() throws Exception {
+        var id = prepared();
+        fakeStatus = 404; overrides.put("type", "PAYMENT_NOT_FOUND");
+        assertThat(body(cancel(client), 202).get("inventoryStatus").asText()).isEqualTo("REVIEW_REQUIRED");
+        assertInventory(100, 2, 0);
+        assertThat(prepare(client, orderId).statusCode()).isEqualTo(409);
+        assertThat(body(verify(client, path(id)), 200).get("canOpenPaymentWindow").asBoolean()).isFalse();
+        fakeStatus = 200; overrides.clear();
+        body(verify(client, path(id)), 200);
+        assertInventory(98, 0, 1);
+    }
+
+    @Test void timeoutOrMismatchedProviderDoesNotReleaseReservation() throws Exception {
+        prepared();
+        fakeStatus = 500;
+        assertThat(body(cancel(client), 202).get("inventoryStatus").asText()).isEqualTo("REVIEW_REQUIRED");
+        assertInventory(100, 2, 0);
+        fakeStatus = 200; overrides.put("storeId", "wrong-store");
+        body(cancel(client), 202);
+        assertInventory(100, 2, 0);
+    }
+
+    @Test void expirationKeepsUncertainHoldAndDoesNotExtendDeadline() throws Exception {
+        prepared();
+        Instant expired = Instant.now().minusSeconds(30);
+        transactions.executeWithoutResult(tx -> entityManager.createNativeQuery(
+                "update stock_reservations set expires_at=:now, next_check_at=:now where order_id=:id")
+                .setParameter("now", expired).setParameter("id", orderId).executeUpdate());
+        assertThat(reservations.findDueOrderIds(Instant.now())).contains(orderId);
+        overrides.put("status", "READY");
+        cancellations.reconcileExpired(orderId);
+        var row = reservations.findByOrderIdOrderByProductIdAsc(orderId).getFirst();
+        assertThat(row.getStatus().name()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(row.getExpiresAt()).isBefore(Instant.now());
+        assertThat(row.getNextCheckAt()).isAfter(Instant.now());
+        assertInventory(100, 2, 0);
+        assertThat(prepare(client, orderId).statusCode()).isEqualTo(409);
+        overrides.clear();
+        cancellations.reconcileExpired(orderId);
+        assertInventory(98, 0, 1);
+    }
+
+    @Test void cancellationAfterConcurrentPaidVerificationUsesPreparingPolicy() throws Exception {
+        var id = prepared();
+        firstStarted = new CountDownLatch(1); releaseFirst = new CountDownLatch(1); delayFirst = true;
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var cancellation = executor.submit(() -> cancel(client));
+            assertThat(firstStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            body(verify(client, path(id)), 200);
+            releaseFirst.countDown();
+            var result = body(cancellation.get(10, TimeUnit.SECONDS), 200);
+            assertThat(result.get("orderStatus").asText()).isEqualTo("CANCELLED");
+        } finally { releaseFirst.countDown(); }
+        assertInventory(100, 0, 2);
+    }
+
+    @Test void legacyUnpaidCannotPrepareAndLegacyPaidIsNeverRetroactivelyDeducted() throws Exception {
+        transactions.executeWithoutResult(tx -> {
+            var saved = orders.findById(orderId).orElseThrow();
+            payments.saveAndFlush(Payment.ready(saved));
+            entityManager.createNativeQuery("update orders set inventory_managed=false where id=:id")
+                    .setParameter("id", orderId).executeUpdate();
+        });
+        assertThat(preparationOutcome(owner.getId(), orderId)).isEqualTo("STOCK_LEGACY_ORDER");
+        var id = payments.findByOrderId(orderId).orElseThrow().getPaymentId();
+        assertThat(verify(client, path(id)).statusCode()).isEqualTo(409);
+        transactions.executeWithoutResult(tx -> {
+            payments.findById(id).orElseThrow().markPaid(Instant.now(), "legacy-tx", "", "KAKAOPAY");
+            orders.findById(orderId).orElseThrow().markPaid();
+        });
+        body(verify(client, path(id)), 200);
+        assertInventory(100, 0, 0);
+    }
+
+    @Test void cancellationChecksAuthenticationAndOwnershipBeforeProviderLookup() throws Exception {
+        prepared();
+        assertThat(cancel(HttpClient.newHttpClient()).statusCode()).isEqualTo(401);
+        assertThat(cancel(login(member())).statusCode()).isEqualTo(404);
+        assertThat(calls).hasValue(0);
+        assertInventory(100, 2, 0);
+    }
+
+    @Test void failedPaidCommitAlsoRollsBackStockReservationAndHistory() throws Exception {
+        var id = prepared();
+        transactions.executeWithoutResult(tx -> entityManager.createNativeQuery(
+                "alter table orders add constraint stock_paid_rollback check (id <> " + orderId + " or status = 'CREATED')").executeUpdate());
+        try {
+            assertThat(verify(client, path(id)).statusCode()).isGreaterThanOrEqualTo(400);
+            assertInventory(100, 2, 0);
+            assertThat(reservations.findByOrderIdOrderByProductIdAsc(orderId).getFirst().getStatus().name()).isEqualTo("RESERVED");
+        } finally {
+            transactions.executeWithoutResult(tx -> entityManager.createNativeQuery("alter table orders drop constraint stock_paid_rollback").executeUpdate());
+        }
+    }
+
+    @Test void genericProductEditWaitsForInventoryAndCannotOverwriteCommittedStock() throws Exception {
+        var id = prepared();
+        var locked = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var inventory = executor.submit(() -> transactions.executeWithoutResult(tx -> {
+                products.findByIdForStockAdjustment(product.getId()).orElseThrow().adjustStock(3);
+                locked.countDown();
+                try { release.await(10, TimeUnit.SECONDS); } catch (InterruptedException e) { throw new RuntimeException(e); }
+            }));
+            assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+            var updateStarted = new CountDownLatch(1);
+            var edit = executor.submit(() -> {
+                updateStarted.countDown();
+                return productService.update(product.getId(), new com.bulkup.raptor.product.api.ProductRequest(
+                        "이름만 수정", "설명", 1200, ProductCategory.SUPPLEMENT, null, "🥛"));
+            });
+            assertThat(updateStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> edit.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            release.countDown();
+            inventory.get(10, TimeUnit.SECONDS);
+            assertThat(edit.get(10, TimeUnit.SECONDS).stockQuantity()).isEqualTo(103);
+        } finally { release.countDown(); }
+        assertInventory(103, 2, 0);
+    }
+
+    HttpResponse<String> cancel(HttpClient http) throws Exception {
+        return verify(http, "/api/orders/" + orderId + "/payments/cancel");
+    }
+
+    void assertInventory(int stock, int reserved, int historyCount) {
+        var current = products.findById(product.getId()).orElseThrow();
+        assertThat(current.getStockQuantity()).isEqualTo(stock);
+        assertThat(current.getReservedQuantity()).isEqualTo(reserved);
+        assertThat(current.getAvailableQuantity()).isEqualTo(stock - reserved);
+        transactions.executeWithoutResult(tx -> assertThat(((Number) entityManager.createNativeQuery(
+                "select count(*) from stock_adjustments where product_id=:id")
+                .setParameter("id", product.getId()).getSingleResult()).intValue()).isEqualTo(historyCount));
     }
 
     static final String webhookSecret = "whsec_" + Base64.getEncoder().encodeToString(
@@ -319,9 +820,23 @@ class PaymentVerificationApiIntegrationTest {
         assertUnpaid(id);
     }
 
+    @Test void signedCancellationWebhookSettlesPendingPaidCancellationOnlyOnce() throws Exception {
+        var id = prepared();
+        body(verify(client, path(id)), 200);
+        transactions.executeWithoutResult(tx -> orders.findByIdForUpdate(orderId).orElseThrow().requestPaidCancellation());
+        overrides.put("status", "CANCELLED");
+        overrides.put("amount", Map.of("total", 5400, "cancelled", 5400));
+        var event = paidEvent(id).replace("Transaction.Paid", "Transaction.Cancelled");
+        body(webhook(event), 200);
+        body(webhook(event), 200);
+        assertThat(readOrder().get("status").asText()).isEqualTo("CANCELLED");
+        assertThat(readOrder().get("cancellationPending").asBoolean()).isFalse();
+        assertInventory(100, 0, 2);
+    }
+
     @Test void signedUnsupportedEventsAndUnknownPaymentsAreAcknowledged() throws Exception {
         var id = prepared();
-        for (String event : List.of("Transaction.Ready", "Transaction.Cancelled", "Future.Event"))
+        for (String event : List.of("Transaction.Ready", "Transaction.Failed", "Future.Event"))
             assertThat(webhook(json.writeValueAsString(Map.of("type", event, "extra", true))).statusCode()).isEqualTo(200);
         assertThat(webhook(paidEvent("payment-not-in-this-database")).statusCode()).isEqualTo(200);
         assertThat(calls).hasValue(0);
@@ -358,6 +873,21 @@ class PaymentVerificationApiIntegrationTest {
         assertThat(payments.findById(id).orElseThrow().getStatus().name()).isEqualTo("PAID");
     }
 
+    @Test void deliveryCreationFailureRollsBackVerifiedPaymentAndOrder() throws Exception {
+        var id = prepared();
+        transactions.executeWithoutResult(tx -> entityManager.createNativeQuery(
+                "alter table deliveries add constraint delivery_rollback_test check (order_id <> " + orderId + ")").executeUpdate());
+        try {
+            assertThat(verify(client, path(id)).statusCode()).isGreaterThanOrEqualTo(400);
+            assertUnpaid(id);
+        } finally {
+            transactions.executeWithoutResult(tx -> entityManager.createNativeQuery(
+                    "alter table deliveries drop constraint delivery_rollback_test").executeUpdate());
+        }
+        assertThat(webhook(paidEvent(id)).statusCode()).isEqualTo(200);
+        assertThat(deliveries.findByOrderId(orderId)).isPresent();
+    }
+
     @Test void browserAndWebhookCanCompleteConcurrently() throws Exception {
         var id = prepared();
         var gate = new CountDownLatch(1);
@@ -373,6 +903,11 @@ class PaymentVerificationApiIntegrationTest {
         assertThat(paymentCount()).isEqualTo(1);
         assertThat(payments.findById(id).orElseThrow().getStatus().name()).isEqualTo("PAID");
         assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo("PAID");
+        var delivery = deliveries.findByOrderId(orderId).orElseThrow();
+        assertThat(delivery.getStatus().name()).isEqualTo("PREPARING");
+        assertThat(delivery.getRecipientName()).isEqualTo("수령인");
+        assertThat(webhook(paidEvent(id)).statusCode()).isEqualTo(200);
+        assertThat(deliveries.findByOrderId(orderId).orElseThrow().getId()).isEqualTo(delivery.getId());
     }
 
     @Test void webhookCanReflectPaymentAfterMemberWasSuspended() throws Exception {
@@ -405,7 +940,7 @@ class PaymentVerificationApiIntegrationTest {
             order.addItem(product, 2);
             if (multiple) {
                 var second = products.saveAndFlush(Product.create("두번째 상품", "설명", 1200,
-                        ProductCategory.SUPPLEMENT, null, "🥛"));
+                        ProductCategory.SUPPLEMENT, null, "🥛", 100));
                 productIds.add(second.getId());
                 order.addItem(second, 1);
             }

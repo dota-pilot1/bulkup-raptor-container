@@ -64,7 +64,7 @@ export function readPaymentRedirect(params: Record<string, string | string[] | u
 export function paymentResultMessage(result: PaymentResult): string {
   switch (result.status) {
     case "verified": return "서버에서 결제 완료를 확인했습니다.";
-    case "unpaid": return result.verification?.canRetry
+    case "unpaid": return result.verification?.orderStatus === "CANCELLED" ? "취소된 주문입니다." : result.verification?.canOpenPaymentWindow
       ? "아직 결제되지 않았습니다. 기존 결제 정보로 결제창을 다시 열 수 있습니다."
       : "현재 결제를 다시 진행할 수 없습니다. 결제 상태를 다시 확인해 주세요.";
     case "received": return "결제 응답을 받았습니다. 결제 완료 여부는 아직 확인되지 않았습니다.";
@@ -76,6 +76,6 @@ export function paymentResultMessage(result: PaymentResult): string {
 
 export function verifiedPaymentResult(verification: PaymentVerification, response?: PaymentResponse): PaymentResult {
   // SDK 응답이 아닌 서버 검증 결과를 기준으로 완료 여부를 정한다.
-  return { status: verification.paymentStatus === "PAID" ? "verified" : "unpaid",
+  return { status: verification.paymentStatus === "PAID" && verification.orderStatus === "PAID" ? "verified" : "unpaid",
     paymentId: verification.paymentId, verification, ...(response ? { response } : {}) };
 }

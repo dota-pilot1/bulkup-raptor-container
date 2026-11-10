@@ -6,11 +6,26 @@ import java.util.UUID;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface OrderRepository extends JpaRepository<Order, Long> {
+public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.id = :id")
+    Optional<Order> findByIdForUpdate(@Param("id") Long id);
+
+    @Query("select o.member.id from Order o where o.id = :id")
+    Optional<Long> findOwnerId(@Param("id") Long id);
+
+    // 페이지를 먼저 조회한 뒤 해당 주문들의 회원과 상품 스냅샷을 한 번에 가져온다.
+    @Query("select distinct o from Order o join fetch o.member left join fetch o.items where o.id in :ids")
+    java.util.List<Order> findAdminOrdersByIds(@Param("ids") java.util.List<Long> ids);
+
+    @Query("select o from Order o join fetch o.member left join fetch o.items where o.id = :id")
+    Optional<Order> findAdminOrderById(@Param("id") Long id);
+
     @EntityGraph(attributePaths = "items")
     Optional<Order> findByMemberIdAndRequestId(Long memberId, UUID requestId);
     @EntityGraph(attributePaths = "items")

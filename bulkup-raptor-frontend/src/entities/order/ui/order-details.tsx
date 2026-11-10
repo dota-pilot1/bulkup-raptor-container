@@ -5,9 +5,10 @@ type OrderDetailsProps = {
   order: OrderResponse;
   // 결제 기능은 페이지에서 전달한다. 이 컴포넌트는 features 계층을 직접 가져오지 않는다.
   paymentAction?: ReactNode;
+  deliveryContent?: ReactNode;
 };
 
-export function OrderDetails({ order, paymentAction }: OrderDetailsProps) {
+export function OrderDetails({ order, paymentAction, deliveryContent }: OrderDetailsProps) {
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -19,10 +20,15 @@ export function OrderDetails({ order, paymentAction }: OrderDetailsProps) {
             <span className="sr-only">주문 번호 </span>#{order.orderId}
           </span>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
-          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-          {order.status === "PAID" ? "결제 완료" : "주문 접수 · 결제 전"}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+            {order.status === "CANCELLED" ? "주문 취소됨" : order.cancellationPending ? "취소 처리 중" : order.status === "PAID" ? "결제 완료" : "주문 접수 · 결제 전"}
+          </span>
+          {(order.status === "CANCELLED" || order.cancellationPending) && order.cancellationReason?.trim() && (
+            <p className="max-w-xs text-right text-xs leading-relaxed text-zinc-500">취소 사유 <span className="whitespace-pre-wrap break-words text-zinc-800">{order.cancellationReason.trim()}</span></p>
+          )}
+        </div>
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -57,6 +63,7 @@ export function OrderDetails({ order, paymentAction }: OrderDetailsProps) {
               {order.delivery.addressDetail}
             </p>
           </section>
+          {deliveryContent}
         </div>
 
         <aside className="rounded-2xl border border-zinc-200 bg-white p-6">

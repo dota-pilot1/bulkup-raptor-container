@@ -47,7 +47,7 @@ class ProductServiceTest {
     @Test
     void 없는_상품은_수정할_수_없다() {
         ProductService service = new ProductService(productRepository, images);
-        when(productRepository.findById(9L)).thenReturn(Optional.empty());
+        when(productRepository.findByIdForStockAdjustment(9L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.update(9L, new ProductRequest("프로틴", "기본 단백질", 28900, ProductCategory.SUPPLEMENT, "BEST", "🥛")))
             .isInstanceOf(BusinessException.class)
@@ -59,7 +59,7 @@ class ProductServiceTest {
     @Test
     void 없는_상품은_삭제할_수_없다() {
         ProductService service = new ProductService(productRepository, images);
-        when(productRepository.findById(9L)).thenReturn(Optional.empty());
+        when(productRepository.findByIdForStockAdjustment(9L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.delete(9L))
             .isInstanceOf(BusinessException.class)
@@ -95,7 +95,7 @@ class ProductServiceTest {
         var service = new ProductService(productRepository, images);
         var product = Product.create("기존", "설명", 1000, ProductCategory.SUPPLEMENT, null, "🥛");
         var image = UploadedImage.stored("images/new.png", 1L, "https://images.example.test/new.png");
-        when(productRepository.findById(9L)).thenReturn(Optional.of(product));
+        when(productRepository.findByIdForStockAdjustment(9L)).thenReturn(Optional.of(product));
         when(images.findOwnedImage(image.getKey(), 1L, UploadedImage.Status.STORED)).thenReturn(Optional.of(image));
 
         var response = service.updateWithImage(9L,
@@ -114,7 +114,7 @@ class ProductServiceTest {
         var product = Product.create("기존", "설명", 1000, ProductCategory.SUPPLEMENT, null, "🥛");
         var oldImage = UploadedImage.stored("images/old.png", 2L, "https://images.example.test/old.png");
         product.attachImage(oldImage);
-        when(productRepository.findById(9L)).thenReturn(Optional.of(product));
+        when(productRepository.findByIdForStockAdjustment(9L)).thenReturn(Optional.of(product));
         when(images.findOwnedImage("images/foreign.png", 1L, UploadedImage.Status.STORED)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.updateWithImage(9L,

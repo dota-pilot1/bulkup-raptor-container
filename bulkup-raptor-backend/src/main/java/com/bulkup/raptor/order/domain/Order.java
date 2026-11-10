@@ -21,6 +21,27 @@ public class Order {
     @Column(name = "request_id", nullable = false) private UUID requestId;
     @Column(name = "request_fingerprint", nullable = false, length = 64) private String requestFingerprint;
     @Column(nullable = false, length = 20) private String status;
+    @Column(name = "inventory_managed", nullable = false) private boolean inventoryManaged;
+    @Column(name = "paid_cancellation_pending", nullable = false) private boolean paidCancellationPending;
+    @Column(name = "cancellation_reason", length = 200) private String cancellationReason;
+
+    public void rememberCancellationReason(String reason) {
+        if (cancellationReason != null || reason == null || reason.isBlank()) return;
+        cancellationReason = reason.trim();
+    }
+
+    public void requestPaidCancellation() {
+        if (!Set.of("PAID", "CANCELLED").contains(status)) throw new IllegalStateException("결제 취소 대상 주문만 처리한다.");
+        paidCancellationPending = true;
+    }
+
+    public void completePaidCancellation() {
+        if ("CANCELLED".equals(status) && !paidCancellationPending) return;
+        if (!Set.of("PAID", "CANCELLED").contains(status) || !paidCancellationPending)
+            throw new IllegalStateException("취소 요청한 결제 완료 주문만 확정한다.");
+        status = "CANCELLED";
+        paidCancellationPending = false;
+    }
     @Column(name = "recipient_name", nullable = false, length = 80) private String recipientName;
     @Column(nullable = false, length = 30) private String phone;
     @Column(name = "postal_code", nullable = false, length = 10) private String postalCode;
@@ -40,6 +61,7 @@ public class Order {
         order.requestId = requestId;
         order.requestFingerprint = fingerprint;
         order.status = "CREATED";
+        order.inventoryManaged = true;
         order.recipientName = recipientName;
         order.phone = phone;
         order.postalCode = postalCode;
@@ -57,6 +79,11 @@ public class Order {
 
     // 검증 서비스가 결제 완료를 확인한 뒤 호출한다.
     public void markPaid() { status = "PAID"; }
+
+    public void cancelUnpaid() {
+        if (!"CREATED".equals(status)) throw new IllegalStateException("미결제 주문만 취소한다.");
+        status = "CANCELLED";
+    }
 
     public void calculateShipping() {
         shippingFee = itemsTotal >= 50_000 || itemsTotal == 0 ? 0 : 3_000;

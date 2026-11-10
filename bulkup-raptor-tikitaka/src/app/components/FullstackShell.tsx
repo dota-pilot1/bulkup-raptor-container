@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, useSyncExternal
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
-  AlertTriangle, Bookmark, BookOpen, Boxes, ChevronDown, ClipboardList, Code2, Coffee, Copy, CreditCard, Database, GraduationCap, KeyRound, Laptop, LayoutDashboard, Leaf, Library, LockKeyhole, LogOut, PackageCheck, PenTool, Rocket, RotateCcw, Search, Settings, ShieldCheck, ShoppingCart, Sparkles, Target, TestTube, Truck, User, Workflow, type LucideIcon,
+  AlertTriangle, Bookmark, BookOpen, Boxes, ChevronDown, ClipboardList, Code2, Coffee, Copy, CreditCard, Database, GraduationCap, KeyRound, Laptop, LayoutDashboard, Leaf, Library, LockKeyhole, LogOut, PackageCheck, Rocket, RotateCcw, Search, Settings, ShieldCheck, ShoppingCart, Sparkles, Target, TestTube, Truck, User, Workflow, type LucideIcon,
 } from "lucide-react";
 import { ContentRefreshProvider } from "@/shared/lib/content-refresh";
 import { RailToggleProvider } from "@/shared/lib/rail-toggle";
@@ -13,37 +13,41 @@ import { BookmarkProvider } from "@/features/hospital-playbook/bookmarks";
 import { playbookModules } from "@/features/hospital-playbook/modules";
 import packageJson from "../../../package.json";
 
-type RailGroup = "architecture" | "common" | "design" | "libraries" | "auth" | "catalog" | "admin" | "uploads" | "storefront" | "commerce" | "quality" | "devops";
+type RailGroup = "architecture" | "common" | "design" | "libraries" | "auth" | "catalog" | "admin" | "uploads" | "storefront" | "inventory" | "commerce" | "shipping" | "quality" | "devops";
 type RailSubgroup = RailGroup;
 type RailItem = { label: string; moduleLabel?: string; icon: LucideIcon; group: RailGroup; subgroup?: RailSubgroup };
 
 const railGroups: Array<{ id: RailGroup; label: string | null }> = [
-  { id: "architecture", label: null },
-  { id: "common", label: null },
   { id: "design", label: null },
+  { id: "storefront", label: null },
+  { id: "inventory", label: null },
+  { id: "commerce", label: null },
+  { id: "shipping", label: null },
+  { id: "admin", label: null },
   { id: "auth", label: null },
   { id: "catalog", label: null },
-  { id: "admin", label: null },
   { id: "uploads", label: null },
-  { id: "storefront", label: null },
-  { id: "commerce", label: null },
+  { id: "architecture", label: null },
+  { id: "common", label: null },
   { id: "quality", label: null },
   { id: "libraries", label: null },
   { id: "devops", label: null },
 ];
 const railItems: RailItem[] = [
   { label: "주요 라이브러리", icon: Library, group: "libraries" },
-  { label: "UI 디자인", icon: PenTool, group: "design", subgroup: "design" },
-  { label: "UX 설계", icon: Workflow, group: "design", subgroup: "design" },
-  { label: "공통 UI", icon: LayoutDashboard, group: "common", subgroup: "common" },
-  { label: "공통 메뉴", icon: ClipboardList, group: "common", subgroup: "common" },
-  { label: "공통 오류 처리", icon: AlertTriangle, group: "common", subgroup: "common" },
-  { label: "DDD 아키텍처", icon: Boxes, group: "common", subgroup: "common" },
-  { label: "FSD 아키텍처", icon: Code2, group: "common", subgroup: "common" },
-  { label: "ORM·데이터 접근", icon: Database, group: "common", subgroup: "common" },
+  { label: "React", icon: Code2, group: "design", subgroup: "design" },
+  { label: "FSD", icon: Code2, group: "design", subgroup: "design" },
+  { label: "헤더", icon: LayoutDashboard, group: "design", subgroup: "design" },
+  { label: "관리자", icon: ShieldCheck, group: "design", subgroup: "design" },
+  { label: "폼·유효성 검사", icon: ClipboardList, group: "design", subgroup: "design" },
+  { label: "목록·상세", icon: Boxes, group: "design", subgroup: "design" },
+  { label: "공통 컴포넌트", icon: Library, group: "design", subgroup: "design" },
+  { label: "JPA", icon: Database, group: "common", subgroup: "common" },
+  { label: "MyBatis", icon: Code2, group: "common", subgroup: "common" },
+  { label: "SQL", icon: Database, group: "common", subgroup: "common" },
   { label: "시스템 구성", icon: Workflow, group: "architecture", subgroup: "architecture" },
   { label: "백엔드 구조", icon: Boxes, group: "architecture", subgroup: "architecture" },
-  { label: "프론트엔드 구조", icon: Code2, group: "architecture", subgroup: "architecture" },
+  { label: "프론트엔드", icon: Code2, group: "architecture", subgroup: "architecture" },
   { label: "API 규칙", icon: BookOpen, group: "architecture", subgroup: "architecture" },
   { label: "자바 문법", icon: Coffee, group: "architecture", subgroup: "architecture" },
   { label: "스프링 시큐리티", icon: ShieldCheck, group: "auth", subgroup: "auth" },
@@ -51,23 +55,20 @@ const railItems: RailItem[] = [
   { label: "로그인·로그아웃", icon: LogOut, group: "auth", subgroup: "auth" },
   { label: "권한·역할", icon: LockKeyhole, group: "auth", subgroup: "auth" },
   { label: "세션·토큰", icon: KeyRound, group: "auth", subgroup: "auth" },
-  { label: "메뉴 관리", icon: LayoutDashboard, group: "catalog", subgroup: "catalog" },
-  { label: "카테고리", icon: Boxes, group: "catalog", subgroup: "catalog" },
-  { label: "상품 데이터 모델", icon: Database, group: "catalog", subgroup: "catalog" },
+  { label: "엔티티·ERD", icon: Database, group: "catalog", subgroup: "catalog" },
   { label: "PostgreSQL·마이그레이션", icon: Database, group: "catalog", subgroup: "catalog" },
   { label: "관리자 레이아웃", icon: LayoutDashboard, group: "admin", subgroup: "admin" },
-  { label: "상품 관리", icon: Boxes, group: "admin", subgroup: "admin" },
-  { label: "재고 관리", icon: Database, group: "admin", subgroup: "admin" },
+  { label: "상품 등록·수정", icon: Boxes, group: "admin", subgroup: "admin" },
   { label: "주문 관리", icon: ClipboardList, group: "admin", subgroup: "admin" },
   { label: "회원 관리", icon: User, group: "admin", subgroup: "admin" },
   { label: "이미지 업로드", icon: Library, group: "uploads", subgroup: "uploads" },
   { label: "상품 목록·상세", icon: Boxes, group: "storefront", subgroup: "storefront" },
-  { label: "검색·필터", icon: Search, group: "storefront", subgroup: "storefront" },
+  { label: "재고 관리", icon: PackageCheck, group: "inventory" },
+  { label: "카테고리", icon: Boxes, group: "storefront", subgroup: "storefront" },
   { label: "장바구니", icon: ShoppingCart, group: "storefront", subgroup: "storefront" },
-  { label: "SEO·콘텐츠", icon: PenTool, group: "storefront", subgroup: "storefront" },
   { label: "주문 생성·상태", icon: ClipboardList, group: "commerce", subgroup: "commerce" },
   { label: "결제 승인·실패·취소", icon: CreditCard, group: "commerce", subgroup: "commerce" },
-  { label: "배송·주문 조회", icon: Truck, group: "commerce", subgroup: "commerce" },
+  { label: "배송", icon: Truck, group: "shipping" },
   { label: "환불·부분 환불", icon: RotateCcw, group: "commerce", subgroup: "commerce" },
   { label: "재고 차감·복구", icon: PackageCheck, group: "commerce", subgroup: "commerce" },
   { label: "단위·API 테스트", icon: TestTube, group: "quality", subgroup: "quality" },
@@ -82,14 +83,14 @@ const railItems: RailItem[] = [
 ];
 const railSubgroups: Array<{ id: RailSubgroup; label: string; lines?: string[] }> = [
   { id: "architecture", label: "아키텍처·기본 문법", lines: ["아키텍처", "·기본 문법"] },
-  { id: "common", label: "공통 로직" },
+  { id: "common", label: "ORM" },
   { id: "design", label: "UI·UX" },
   { id: "auth", label: "인증·인가" },
-  { id: "catalog", label: "메뉴·카테고리·DB", lines: ["메뉴·카테고리", "·DB"] },
+  { id: "catalog", label: "데이터베이스" },
   { id: "admin", label: "관리자 페이지" },
   { id: "uploads", label: "파일 업로드" },
-  { id: "storefront", label: "상품 탐색·장바구니", lines: ["상품 탐색", "·장바구니"] },
-  { id: "commerce", label: "주문·결제·배송", lines: ["주문·결제", "·배송"] },
+  { id: "storefront", label: "상품 관리" },
+  { id: "commerce", label: "주문·결제" },
   { id: "quality", label: "테스트·품질" },
   { id: "devops", label: "DevOps·운영" },
 ];
@@ -267,11 +268,13 @@ export function FullstackShell({ children, user }: { children: ReactNode; user: 
               })}
             </div>)}
           </div>
-          <div ref={accountRef} className="relative flex min-h-[116px] w-full flex-col items-center gap-1 border-t px-2 py-2" style={{ borderColor: railTint(10) }}>
-            <button type="button" onClick={() => selectModule("통합 검색")} title="전체 노트 검색" aria-label="전체 노트 검색" className={"flex h-[40px] w-[120px] items-center justify-center transition-all duration-200 " + (active === "통합 검색" ? "rounded-[13px]" : "rounded-[20px] hover:rounded-[13px] hover:bg-white/10")} style={{ backgroundColor: active === "통합 검색" ? railTint(25) : undefined }}><Search className="size-[20px]" strokeWidth={2} /></button>
-            <button type="button" onClick={() => selectModule("북마크")} title="북마크" aria-label="북마크" aria-current={active === "북마크" ? "page" : undefined} className={"flex h-[40px] w-[120px] items-center justify-center transition-all duration-200 " + (active === "북마크" ? "rounded-[13px]" : "rounded-[20px] hover:rounded-[13px] hover:bg-white/10")} style={{ backgroundColor: active === "북마크" ? railTint(25) : undefined }}><Bookmark className="size-[20px]" fill={active === "북마크" ? "currentColor" : "none"} /></button>
-            <button type="button" onClick={() => selectModule("설정")} title="설정" className={"flex h-[40px] w-[120px] items-center justify-center transition-all duration-200 " + (active === "설정" ? "rounded-[13px]" : "rounded-[20px] hover:rounded-[13px] hover:bg-white/10")} style={{ backgroundColor: active === "설정" ? railTint(25) : undefined }}><Settings className="size-[20px]" strokeWidth={2} /></button>
-          <button type="button" onClick={() => setAccountOpen((open) => !open)} title="Bulkup Raptor 관리자" className="grid h-[40px] w-[120px] place-items-center rounded-[20px] border border-transparent p-0 transition-all hover:bg-white/20"><span className="grid h-[30px] w-[30px] place-items-center rounded-full border bg-surface-raised text-text-primary" style={{ borderColor: railTint(30) }}><User className="size-4" /></span></button>
+          <div ref={accountRef} className="relative flex w-full shrink-0 flex-col items-center gap-1 border-t px-2 py-2" style={{ borderColor: railTint(10) }}>
+            <div className="grid w-full grid-cols-2 gap-1" role="group" aria-label="노트 도구">
+            <button type="button" onClick={() => selectModule("통합 검색")} title="전체 노트 검색" aria-label="전체 노트 검색" className={"flex h-[40px] w-full items-center justify-center transition-all duration-200 " + (active === "통합 검색" ? "rounded-[13px]" : "rounded-[20px] hover:rounded-[13px] hover:bg-white/10")} style={{ backgroundColor: active === "통합 검색" ? railTint(25) : undefined }}><Search className="size-[20px]" strokeWidth={2} /></button>
+            <button type="button" onClick={() => selectModule("북마크")} title="북마크" aria-label="북마크" aria-current={active === "북마크" ? "page" : undefined} className={"flex h-[40px] w-full items-center justify-center transition-all duration-200 " + (active === "북마크" ? "rounded-[13px]" : "rounded-[20px] hover:rounded-[13px] hover:bg-white/10")} style={{ backgroundColor: active === "북마크" ? railTint(25) : undefined }}><Bookmark className="size-[20px]" fill={active === "북마크" ? "currentColor" : "none"} /></button>
+            <button type="button" onClick={() => selectModule("설정")} title="설정" aria-label="설정" className={"flex h-[40px] w-full items-center justify-center transition-all duration-200 " + (active === "설정" ? "rounded-[13px]" : "rounded-[20px] hover:rounded-[13px] hover:bg-white/10")} style={{ backgroundColor: active === "설정" ? railTint(25) : undefined }}><Settings className="size-[20px]" strokeWidth={2} /></button>
+          <button type="button" onClick={() => setAccountOpen((open) => !open)} title="Bulkup Raptor 관리자" aria-label="Bulkup Raptor 관리자" aria-expanded={accountOpen} className="grid h-[40px] w-full place-items-center rounded-[20px] border border-transparent p-0 transition-all hover:bg-white/20"><span className="grid h-[30px] w-[30px] place-items-center rounded-full border bg-surface-raised text-text-primary" style={{ borderColor: railTint(30) }}><User className="size-4" /></span></button>
+            </div>
             <span className="mt-0.5 select-none text-[8.5px] font-bold tabular-nums" style={{ color: railTint(85) }}>v{packageJson.version}</span>
             {accountOpen && <div className="absolute bottom-[52px] left-[130px] z-50 w-[200px] rounded-lg border border-surface-border bg-surface-raised p-1.5 text-text-primary shadow-xl"><div className="border-b border-surface-border-soft px-2.5 py-2"><p className="truncate text-[13px] font-black">{user.username}</p><p className="truncate text-[11px] font-semibold text-text-secondary">{user.role.name}</p><p className="truncate text-[10px] text-text-secondary">{user.email}</p></div><button type="button" onClick={() => void logout()} className="mt-1 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px] font-bold text-destructive hover:bg-destructive/10"><LogOut className="size-4" /> 로그아웃</button></div>}
           </div>

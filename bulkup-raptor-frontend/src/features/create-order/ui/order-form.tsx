@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { addressesKey, getAddresses } from "@/entities/delivery/api/addresses";
 import { deliveryInfo, emptyDelivery } from "@/entities/delivery/model/schema";
+import { ApiError } from "@/shared/api/client";
+import { Dialog } from "@/shared/ui/dialog";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,6 +32,9 @@ export function OrderForm({ memberId, cart, isRefreshing = false }: { memberId: 
   const [chosenAddressId, setChosenAddressId] = useState<string | null>(null);
   const creation = useCreateOrder();
   const attempt = useOrderAttempt(memberId);
+  const [dismissedError, setDismissedError] = useState<Error | null>(null);
+  const stockInsufficient = creation.error instanceof ApiError && creation.error.code === "ORDER_STOCK_INSUFFICIENT";
+  const closeStockError = () => setDismissedError(creation.error);
   const form = useForm<OrderForm>({ resolver: zodResolver(orderFormSchema),
     defaultValues: { recipientName: "", phone: "", postalCode: "", address: "", addressDetail: "" } });
   const delivery = useQuery({ queryKey: addressesKey(memberId), queryFn: ({ signal }) => getAddresses(signal), retry: false });
@@ -104,7 +109,7 @@ export function OrderForm({ memberId, cart, isRefreshing = false }: { memberId: 
             </select>
           </div>}
         </div>
-        <p className="mt-2 text-xs leading-5 text-zinc-500">{delivery.isPending ? "기본 배송지를 확인하고 있어요. 직접 입력할 수도 있어요." : delivery.isError ? "기본 배송지를 불러오지 못했어요. 직접 입력해 주세요." : delivery.data?.length ? "저장한 배송지를 선택하거나 직접 입력해 주세요. 수정한 내용은 이번 주문에만 적용돼요." : "이번 주문을 받을 배송지를 입력해 주세요."}</p>
+        <p className="mt-2 text-xs leading-5 text-zinc-500">{delivery.isPending ? "기본 배송지를 확인하고 있어요. 직접 입력할 수도 있어요." : delivery.isError ? "기본 배송지를 불러오지 못했어요. 직접 입력해 주세요." : delivery.data?.length ? "기본 배송지가 수령지로 자동 선택돼요. 다른 배송지를 선택하거나 직접 수정할 수 있고, 수정한 내용은 이번 주문에만 적용돼요." : "이번 주문을 받을 수령지를 입력해 주세요."}</p>
         <fieldset disabled={creation.isPending || isRefreshing || !!attempt} className="mt-5 grid gap-4 sm:grid-cols-2">
           {fields.map(field => <div key={field.name} className={field.name === "address" || field.name === "addressDetail" ? "sm:col-span-2" : ""}>
             <label htmlFor={`order-${field.name}`} className="mb-1.5 block text-sm font-semibold text-zinc-700">{field.label}</label>
@@ -122,12 +127,18 @@ export function OrderForm({ memberId, cart, isRefreshing = false }: { memberId: 
       <h2 className="text-lg font-bold text-zinc-950">주문 금액</h2>
       {!attempt && <dl className="mt-5 space-y-3 text-sm"><div className="flex justify-between"><dt className="text-zinc-500">상품 금액</dt><dd>{amounts.itemsTotal.toLocaleString()}원</dd></div><div className="flex justify-between"><dt className="text-zinc-500">예상 배송비</dt><dd>{amounts.shippingFee === 0 ? "무료" : `${amounts.shippingFee.toLocaleString()}원`}</dd></div></dl>}
       <div className="mt-5 flex items-center justify-between border-t border-zinc-100 pt-4"><span className="text-sm font-bold">{attempt ? "이전 요청 금액" : "총 예상 금액"}</span><strong className="text-xl font-black text-emerald-700">{(attempt?.expectedTotalAmount ?? amounts.totalAmount).toLocaleString()}원</strong></div>
-      <p className="mt-4 text-xs leading-5 text-zinc-500">주문 생성 시 현재 가격과 배송비를 다시 확인합니다. 결제는 아직 진행하지 않습니다.</p>
+      <p className="mt-4 text-xs leading-5 text-zinc-500">주문 생성 시 가격과 배송비, 재고를 확인합니다. 결제 전에는 품절될 수 있습니다.</p>
       {attempt ? <button type="button" disabled={creation.isPending} onClick={() => void retry()} className="mt-5 h-12 w-full cursor-pointer rounded-xl bg-zinc-950 text-sm font-bold text-white hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-50">{creation.isPending ? "주문 생성 중" : "같은 주문 요청으로 결과 확인"}</button>
         : <button type="submit" disabled={creation.isPending || isRefreshing || cart.items.length === 0} className="mt-5 h-12 w-full cursor-pointer rounded-xl bg-emerald-700 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">{creation.isPending ? "주문 생성 중" : isRefreshing ? "상품 확인 중" : "주문 생성"}</button>}
       <button type="button" disabled={creation.isPending} onClick={requestLeave} className="mt-3 h-11 w-full cursor-pointer rounded-xl border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-50">{attempt ? "장바구니로 돌아가기" : "주문 취소하고 돌아가기"}</button>
     </aside>
   </form>
+  <Dialog isOpen={stockInsufficient && !creation.isPending && dismissedError !== creation.error}
+    title="상품 재고가 부족합니다" onClose={closeStockError}
+    footer={<button type="button" onClick={closeStockError}
+      className="rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">확인</button>}>
+    <p role="alert" className="text-sm leading-relaxed text-zinc-600">주문 상품 중 구매 가능한 재고가 부족한 상품이 있어 주문을 생성하지 못했습니다. 장바구니에서 상품과 수량을 확인해 주세요.</p>
+  </Dialog>
   <ConfirmDialog isOpen={confirmation !== null} title="이 내용으로 주문할까요?" description="상품과 배송지를 마지막으로 확인해 주세요. 결제는 진행되지 않습니다."
     confirmLabel="확인하고 주문 생성" cancelLabel="계속 수정" isPending={creation.isPending}
     onClose={() => setConfirmation(null)} onConfirm={() => void submit()}>

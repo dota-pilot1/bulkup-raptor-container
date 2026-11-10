@@ -77,7 +77,7 @@ export function ProfileTabs({ account }: { account: MemberSession }) {
         </div>
         <section id="profile-delivery" hidden={section !== "delivery"} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-xs sm:p-8">
           <h2 className="text-xl font-bold text-zinc-950">배송 정보</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">배송지를 여러 개 저장하고 주문할 때 선택할 수 있어요. 기본 배송지가 자동으로 선택돼요.</p>
+          <p className="mt-2 text-sm leading-6 text-zinc-500">기본 배송지가 주문의 수령지로 자동 선택돼요. 주문하기 전에 다른 배송지를 선택하거나 수정할 수 있어요.</p>
           <DefaultDeliverySettings key={account.id} memberId={account.id} />
           <p className="mt-6 text-xs leading-5 text-zinc-400">기본 배송지를 바꿔도 이미 생성한 주문의 배송지는 유지됩니다.</p>
         </section>

@@ -34,7 +34,7 @@ const draw = (memberState,cartState) => renderToStaticMarkup(React.createElement
   isOpen:true,onClose(){},onLogin(){},member:memberState,cart:cartState,
 }));
 const serverCart = {
-  items: [{id:9,product:{id:2,name:'상품 A',price:500,categoryLabel:'보충제',imageUrl:'https://example.test/a.png'},quantity:2,lineTotal:1700}],
+  items: [{id:9,product:{id:2,name:'상품 A',price:500,categoryLabel:'보충제',stockQuantity:100,reservedQuantity:90,availableQuantity:10,imageUrl:'https://example.test/a.png'},quantity:2,lineTotal:1700}],
   totalQuantity: 2, totalAmount: 1700,
 };
 
@@ -105,4 +105,24 @@ test('deletion locks delete and quantity controls until refresh finishes', () =>
     }
     assert.match(html, /aria-busy="true"/);
   } finally { deletionState.isPending = false; }
+});
+
+
+test('cart displays available rather than physical stock and stops increases at that quantity',()=>{
+  const html=draw(member,cart(serverCart)).replaceAll('<!-- -->','');
+  assert.match(html,/현재 구매 가능 10개/);
+  assert.ok(!html.includes('현재 구매 가능 100개'));
+  const atLimit={...serverCart,items:[{...serverCart.items[0],quantity:10}]};
+  assert.match(draw(member,cart(atLimit)),/disabled=""[^>]*aria-label="상품 A 수량 증가"/);
+  const overLimit={...serverCart,items:[{...serverCart.items[0],quantity:11}]};
+  assert.match(draw(member,cart(overLimit)),/담은 수량이 구매 가능 수량을 초과/);
+});
+
+test('a sold-out cart item remains visible and removable while increases are blocked',()=>{
+  const unavailable={...serverCart,items:[{...serverCart.items[0],product:{...serverCart.items[0].product,reservedQuantity:100,availableQuantity:0}}]};
+  const html=draw(member,cart(unavailable)).replaceAll('<!-- -->','');
+  assert.match(html,/품절 · 현재 구매 가능 0개/);
+  assert.match(html,/disabled=""[^>]*aria-label="상품 A 수량 증가"/);
+  assert.doesNotMatch(html,/disabled=""[^>]*aria-label="상품 A 삭제"/);
+  assert.doesNotMatch(html,/disabled=""[^>]*aria-label="상품 A 수량 감소"/);
 });

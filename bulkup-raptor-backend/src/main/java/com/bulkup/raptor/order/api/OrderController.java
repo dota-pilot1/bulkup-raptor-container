@@ -25,8 +25,9 @@ public class OrderController {
 
     @GetMapping
     public OrderPageResponse list(@AuthenticationPrincipal Long memberId,
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-        return orders.list(memberId, page, size);
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status) {
+        return orders.list(memberId, page, size, status);
     }
 
     @GetMapping("/{orderId}")

@@ -6,6 +6,7 @@ import type { MemberSession } from "@/entities/session";
 import { ApiError } from "@/shared/api/client";
 import { requestPayment } from "../api/request-payment";
 import { verifyPayment } from "../api/verify-payment";
+import { cancelOrder } from "@/features/cancel-order/api/cancel-order";
 import { verifiedPaymentResult } from "./payment-result";
 import { usePreparePayment } from "./use-prepare-payment";
 
@@ -18,8 +19,12 @@ export function useRequestPayment(memberId: number, orderId: number) {
   const [phase, setPhase] = useState<"verify" | "sdk" | null>(null);
   const mutationKey = ["request-payment", memberId, orderId];
   const pending = useIsMutating({ mutationKey, exact: true });
+  const cancellationKey = ["cancel-order", memberId, orderId];
+
+  const cancelling = useIsMutating({ mutationKey: cancellationKey, exact: true });
   // 요청 도중 계정이 바뀌면 이전 회원의 결제 결과를 표시하지 않는다.
   const current = (member: MemberSession) => client.getQueryData(["me"]) === member;
+
   const mutation = useMutation({
     mutationKey,
     retry: false,
@@ -36,11 +41,13 @@ export function useRequestPayment(memberId: number, orderId: number) {
       const verification = await verifyPayment(orderId, payment?.paymentId);
       if (!current(member)) return null;
       // 조회 전용 요청이나 재결제가 금지된 상태에서는 SDK를 호출하지 않는다.
-      if (checkOnly || !verification.canRetry) {
+      if (checkOnly || !verification.canOpenPaymentWindow) {
         await client.invalidateQueries({ queryKey: ["orders"] });
         return current(member) ? verifiedPaymentResult(verification) : null;
       }
       setPhase("sdk");
+
+      // 포트원 결제창을 열고 결과를 기다린다. 실제 결제 완료 여부는 이후 서버에서 검증한다.
       const result = await requestPayment(verification);
       if (!current(member)) return null;
       // 성공 응답과 이미 결제된 건 모두 서버 검증을 거쳐야 완료로 표시한다.
@@ -51,7 +58,18 @@ export function useRequestPayment(memberId: number, orderId: number) {
         await client.invalidateQueries({ queryKey: ["orders"] });
         return current(member) ? verifiedPaymentResult(confirmed, result.response) : null;
       }
-      return { ...result, paymentId: verification.paymentId };
+      if (result.status === "cancelled" || result.status === "failed") {
+        // Closing the payment window keeps the order; it never submits an order cancellation.
+        const released = await cancelOrder(orderId, true);
+        if (!current(member)) return null;
+        if (released.orderStatus === "PAID") {
+          const confirmed = await verifyPayment(orderId, verification.paymentId);
+          await client.invalidateQueries({ queryKey: ["orders", memberId] });
+          return current(member) ? verifiedPaymentResult(confirmed, result.response) : null;
+        }
+      }
+      await client.invalidateQueries({ queryKey: ["orders", memberId] });
+      return current(member) ? { ...result, paymentId: verification.paymentId } : null;
     },
     onError: (error, { member }) => {
       if (current(member) && error instanceof ApiError && error.status === 401) {
@@ -64,7 +82,8 @@ export function useRequestPayment(memberId: number, orderId: number) {
 
   async function submit(checkOnly = false) {
     // 빠른 연속 클릭과 같은 주문의 중복 요청을 함께 막는다.
-    if (submitting.current || client.isMutating({ mutationKey, exact: true }) > 0) return;
+    if (submitting.current || client.isMutating({ mutationKey, exact: true }) > 0
+      || client.isMutating({ mutationKey: cancellationKey, exact: true }) > 0) return;
     const member = client.getQueryData<MemberSession | null>(["me"]);
     if (!member || member.id !== memberId || !Number.isSafeInteger(orderId) || orderId <= 0) return;
     submitting.current = true;
@@ -76,7 +95,7 @@ export function useRequestPayment(memberId: number, orderId: number) {
   const visible = mutation.variables !== undefined && current(mutation.variables.member);
   return {
     submit,
-    isPending: pending > 0 || mutation.isPending || preparation.isPending,
+    isPending: pending > 0 || cancelling > 0 || mutation.isPending || preparation.isPending,
     isPreparing: preparation.isPending,
     isVerifying: phase === "verify",
     data: visible ? mutation.data?.verification ?? preparation.data : undefined,

@@ -15,6 +15,8 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import com.bulkup.raptor.image.domain.UploadedImage;
+import com.bulkup.raptor.common.error.BusinessException;
+import com.bulkup.raptor.common.error.ErrorCode;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -37,6 +39,36 @@ public class Product {
 
     @Column(nullable = false)
     private int price;
+
+    @Column(name = "stock_quantity", nullable = false)
+    private int stockQuantity;
+
+    @Column(name = "reserved_quantity", nullable = false)
+    private int reservedQuantity;
+
+    public int getAvailableQuantity() { return stockQuantity - reservedQuantity; }
+
+    public void reserveStock(int quantity) {
+        if (quantity <= 0) throw new BusinessException(ErrorCode.INVALID_INPUT);
+        if (quantity > getAvailableQuantity()) throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT);
+        reservedQuantity += quantity;
+    }
+
+    public void confirmStock(int quantity) {
+        requireReserved(quantity);
+        stockQuantity -= quantity;
+        reservedQuantity -= quantity;
+    }
+
+    public void releaseStock(int quantity) {
+        requireReserved(quantity);
+        reservedQuantity -= quantity;
+    }
+
+    private void requireReserved(int quantity) {
+        if (quantity <= 0 || quantity > reservedQuantity)
+            throw new BusinessException(ErrorCode.STOCK_RESERVATION_CONFLICT);
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -66,17 +98,28 @@ public class Product {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    private Product(String name, String description, int price, ProductCategory category, String badge, String visual) {
+    private Product(String name, String description, int price, ProductCategory category, String badge, String visual,
+            int stockQuantity) {
+        if (stockQuantity < 0) {
+            throw new IllegalArgumentException("재고 수량은 0 이상이어야 합니다.");
+        }
         this.name = name;
         this.description = description;
         this.price = price;
         this.category = category;
         this.badge = badge;
         this.visual = visual;
+        this.stockQuantity = stockQuantity;
     }
 
     public static Product create(String name, String description, int price, ProductCategory category, String badge, String visual) {
-        return new Product(name, description, price, category, badge, visual);
+        // 기존 시드와 내부 생성 경로는 초기 재고 0을 사용한다.
+        return create(name, description, price, category, badge, visual, 0);
+    }
+
+    public static Product create(String name, String description, int price, ProductCategory category, String badge,
+            String visual, int stockQuantity) {
+        return new Product(name, description, price, category, badge, visual, stockQuantity);
     }
 
     public void change(String name, String description, int price, ProductCategory category, String badge, String visual) {
@@ -86,6 +129,20 @@ public class Product {
         this.category = category;
         this.badge = badge;
         this.visual = visual;
+    }
+
+    public void adjustStock(int delta) {
+        if (delta == 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        long afterQuantity = (long) stockQuantity + delta;
+        if (afterQuantity < reservedQuantity) {
+            throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT);
+        }
+        if (afterQuantity > Integer.MAX_VALUE) {
+            throw new BusinessException(ErrorCode.STOCK_QUANTITY_OUT_OF_RANGE);
+        }
+        stockQuantity = (int) afterQuantity;
     }
 
     @PrePersist

@@ -20,7 +20,7 @@ class PreparePaymentServiceTest {
     final MemberRepository members = mock(MemberRepository.class);
     final OrderRepository orders = mock(OrderRepository.class);
     final PaymentRepository payments = mock(PaymentRepository.class);
-    final PreparePaymentService service = new PreparePaymentService(members, orders, payments);
+    final PreparePaymentService service = new PreparePaymentService(members, orders, payments, mock(com.bulkup.raptor.inventory.application.service.StockReservationService.class));
 
     @Test
     void rejectsAnonymousAndInvalidInputsBeforeReadingDatabase() {

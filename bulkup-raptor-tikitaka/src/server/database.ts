@@ -426,11 +426,14 @@ function ensureBulkupNoteSpaces() {
   // Bulkup Raptor 전용 노트 공간만 보장한다.
   // 카테고리·주제·문서는 사용자가 직접 입력한 것만 유지한다.
   const bulkupNoteSpaces = [
-    ["SYSTEM", "시스템 구성"], ["DOMAIN", "백엔드 구조"], ["APP_STRUCTURE", "프론트엔드 구조"], ["API_RULES", "API 규칙"],
+    ["SYSTEM", "시스템 구성"], ["DOMAIN", "백엔드 구조"], ["APP_STRUCTURE", "프론트엔드"], ["API_RULES", "API 규칙"],
     ["JAVA_SYNTAX", "자바 문법"],
     ["COMMON_LOGIC", "공통 로직"],
+    ["ORM_MYBATIS", "MyBatis"], ["ORM_SQL", "SQL"],
     ["COMMON_MENU", "공통 메뉴"],
     ["UI_DESIGN", "UI 디자인"], ["UX_DESIGN", "UX 설계"],
+    ["UI_HEADER", "헤더"], ["UI_ADMIN", "관리자"], ["UI_FORM_VALIDATION", "폼·유효성 검사"],
+    ["UI_LIST_DETAIL", "목록·상세"], ["UI_COMPONENTS", "공통 컴포넌트"],
     ["MAJOR_LIBRARIES", "주요 라이브러리"],
     ["COMMON_ERROR", "공통 오류 처리"], ["DDD_ARCHITECTURE", "DDD 아키텍처"], ["FSD_ARCHITECTURE", "FSD 아키텍처"],
     ["AUTH_LOGIN", "스프링 시큐리티"], ["AUTH_SIGNUP", "회원가입"],

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bulkup.raptor.inventory.infrastructure.mybatis.StockAdjustmentQueryMapper">
+    <resultMap id="adjustment" type="com.bulkup.raptor.inventory.application.model.StockAdjustmentRow">
+        <constructor>
+            <idArg column="id" javaType="java.lang.Long" />
+            <arg column="product_id" javaType="java.lang.Long" />
+            <arg column="actor_id" javaType="java.lang.Long" />
+            <arg column="actor_name" javaType="java.lang.String" />
+            <arg column="type" javaType="com.bulkup.raptor.inventory.domain.StockAdjustmentType" />
+            <arg column="delta" javaType="_int" />
+            <arg column="before_quantity" javaType="_int" />
+            <arg column="after_quantity" javaType="_int" />
+            <arg column="reason" javaType="java.lang.String" />
+            <arg column="created_at" javaType="java.time.Instant" />
+            <arg column="order_id" javaType="java.lang.Long" />
+            <arg column="cause" javaType="java.lang.String" />
+        </constructor>
+    </resultMap>
+
+    <select id="existsProduct" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM products WHERE id = #{productId})
+    </select>
+
+    <select id="countByProductId" resultType="long">
+        SELECT COUNT(*) FROM stock_adjustments WHERE product_id = #{productId}
+    </select>
+
+    <select id="findByProductId" resultMap="adjustment">
+        SELECT sa.id, sa.product_id, sa.actor_id, m.name AS actor_name,
+               sa.type, sa.delta, sa.before_quantity, sa.after_quantity,
+               sa.reason, sa.created_at, sa.order_id, sa.cause
+        FROM stock_adjustments sa
+        JOIN members m ON m.id = sa.actor_id
+        WHERE sa.product_id = #{productId}
+        ORDER BY sa.created_at DESC, sa.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+</mapper>

@@ -9,7 +9,7 @@ import { ApiError } from "@/shared/api/client";
 import { useToast } from "@/shared/ui/toast";
 import { addCartItem } from "../api/add-cart-item";
 
-type AddInput = { productId: number; member: MemberSession };
+type AddInput = { productId: number; quantity: number; member: MemberSession };
 
 export function useAddCartItem() {
   const queryClient = useQueryClient();
@@ -24,9 +24,9 @@ export function useAddCartItem() {
     // 여러 상품 카드의 담기를 순서대로 처리하고, 드문 수량 변경 요청과의 겹침에도 대비한다.
     scope: cartMutationScope,
     retry: false,
-    mutationFn: ({ productId, member: snapshot }: AddInput) => {
+    mutationFn: ({ productId, quantity, member: snapshot }: AddInput) => {
       if (!isCurrentSession(snapshot)) throw new Error("로그인 상태가 변경되었습니다. 다시 시도해 주세요.");
-      return addCartItem(productId);
+      return addCartItem(productId, quantity);
     },
     onSuccess: async (cart, { member: snapshot }) => {
       if (!isCurrentSession(snapshot)) return;
@@ -50,7 +50,7 @@ export function useAddCartItem() {
     },
   });
 
-  async function add(productId: number) {
+  async function add(productId: number, quantity = 1) {
     // 상태 갱신 전 같은 버튼의 연속 호출도 차단한다.
     if (adding.current) return;
     const snapshot = queryClient.getQueryData<MemberSession | null>(["me"]);
@@ -66,7 +66,7 @@ export function useAddCartItem() {
     }
     adding.current = true;
     try {
-      await mutation.mutateAsync({ productId, member: snapshot });
+      await mutation.mutateAsync({ productId, quantity, member: snapshot });
     } catch {
       // 실패 안내는 onError에서 처리한다.
     } finally {

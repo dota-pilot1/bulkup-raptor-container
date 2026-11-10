@@ -122,6 +122,7 @@ export function CartDrawer({ isOpen, onClose, onLogin, member, cart }: CartDrawe
           {isChanging && (
             <p role="status" className="text-xs text-zinc-500">장바구니 변경을 처리하는 중입니다.</p>
           )}
+          <p className="text-xs leading-relaxed text-zinc-500">구매 가능 수량은 바뀔 수 있으며, 재고는 결제를 시작할 때 확보됩니다.</p>
           <div className="divide-y divide-zinc-100" aria-busy={isChanging}>
             {items.map((item) => (
               <div key={item.id} className="flex items-center gap-3 py-3">
@@ -140,12 +141,16 @@ export function CartDrawer({ isOpen, onClose, onLogin, member, cart }: CartDrawe
                       </svg>
                     </button>
                   </div>
+                  <p className={`mt-1 text-xs ${item.product.availableQuantity === 0 ? "font-semibold text-rose-600" : "text-zinc-500"}`}>
+                    {item.product.availableQuantity === 0 ? "품절 · " : ""}현재 구매 가능 {item.product.availableQuantity.toLocaleString("ko-KR")}개
+                  </p>
+                  {item.product.availableQuantity > 0 && item.quantity > item.product.availableQuantity && <p role="alert" className="mt-1 text-xs text-rose-600">담은 수량이 구매 가능 수량을 초과합니다.</p>}
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-sm font-extrabold text-zinc-900">{item.lineTotal.toLocaleString()}원</span>
                     <div className="flex items-center rounded-lg border border-zinc-200 bg-white shadow-2xs">
                       <button type="button" disabled={isChanging || item.quantity <= 1} onClick={() => void quantityChange.update(item.id, item.quantity - 1)} aria-label={`${item.product.name} 수량 감소`} className="grid h-6 w-6 cursor-pointer place-items-center text-xs font-bold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-300">-</button>
                       <span className="min-w-6 text-center text-xs font-bold text-zinc-900">{item.quantity}</span>
-                      <button type="button" disabled={isChanging || item.quantity >= 99} onClick={() => void quantityChange.update(item.id, item.quantity + 1)} aria-label={`${item.product.name} 수량 증가`} className="grid h-6 w-6 cursor-pointer place-items-center text-xs font-bold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-300">+</button>
+                      <button type="button" disabled={isChanging || item.quantity >= Math.min(99, item.product.availableQuantity)} onClick={() => void quantityChange.update(item.id, item.quantity + 1)} aria-label={`${item.product.name} 수량 증가`} className="grid h-6 w-6 cursor-pointer place-items-center text-xs font-bold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-300">+</button>
                     </div>
                   </div>
                 </div>

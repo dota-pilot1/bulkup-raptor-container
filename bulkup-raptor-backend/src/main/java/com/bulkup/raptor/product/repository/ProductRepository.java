@@ -12,6 +12,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findAllByOrderByIdAsc();
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Product p where p.id = :id")
+    Optional<Product> findByIdForStockAdjustment(@Param("id") Long id);
+
     @Lock(LockModeType.PESSIMISTIC_READ)
     @Query("select p from Product p where p.id in :ids order by p.id")
     List<Product> findForOrder(@Param("ids") List<Long> ids);

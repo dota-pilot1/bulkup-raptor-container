@@ -71,9 +71,12 @@ test('API preserves status and server detail without retrying', async t => {
 test('rapid calls submit once and cache the full response under the member key', async t => {
   const client = queryClient();
   const request = deferred();
-  const mock = t.mock.method(globalThis, 'fetch', () => request.promise);
+  const mock = t.mock.method(globalThis, 'fetch', (_url, init) => {
+    assert.deepEqual(JSON.parse(init.body), { productId: 10, quantity: 3 });
+    return request.promise;
+  });
   const { add } = hook(client);
-  const first = add(10);
+  const first = add(10, 3);
   const duplicate = add(10);
   request.resolve(Response.json(cart));
   await Promise.all([first, duplicate]);

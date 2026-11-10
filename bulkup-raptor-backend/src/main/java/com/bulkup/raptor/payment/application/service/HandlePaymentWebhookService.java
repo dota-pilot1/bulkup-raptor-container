@@ -34,8 +34,8 @@ public class HandlePaymentWebhookService {
         catch (Exception error) { throw new BusinessException(ErrorCode.INVALID_INPUT); }
         if (event == null || !event.isObject() || !event.path("type").isTextual())
             throw new BusinessException(ErrorCode.INVALID_INPUT);
-        // 이번 단계는 완료 알림만 처리한다. 그 외 이벤트와 추가 필드는 무시한다.
-        if (!"Transaction.Paid".equals(event.path("type").asText())) return;
+        boolean paid = "Transaction.Paid".equals(event.path("type").asText());
+        if (!paid && !"Transaction.Cancelled".equals(event.path("type").asText())) return;
         // 3. 완료 알림의 결제 ID 형식과 상점 ID를 확인한다.
         if (storeId.isBlank()) throw new BusinessException(ErrorCode.PAYMENT_WEBHOOK_NOT_CONFIGURED);
         var data = event.path("data");
@@ -47,6 +47,7 @@ public class HandlePaymentWebhookService {
             throw new BusinessException(ErrorCode.PAYMENT_VERIFICATION_MISMATCH);
         // 4. DB에 등록된 결제는 포트원에서 다시 조회해 검증한다.
         // DB에 없는 결제는 무시하며, 검증을 통과한 결제와 주문만 PAID로 반영한다.
-        payments.verifyWebhook(data.path("paymentId").asText());
+        if (paid) payments.verifyWebhook(data.path("paymentId").asText());
+        else payments.reconcilePayment(data.path("paymentId").asText());
     }
 }

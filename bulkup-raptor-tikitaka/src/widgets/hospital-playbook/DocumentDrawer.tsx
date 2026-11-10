@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- drawer state resets when the selected document changes. */
+import DocumentReferences from "./DocumentReferences";
 import { BookmarkButton } from "@/features/hospital-playbook/bookmarks";
 import { buildDocumentDeepLink } from "@/features/hospital-playbook/document-deep-link";
 import { BookCopy, Braces, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, MoreHorizontal, RefreshCw, Search, Trash2, X } from "lucide-react";
@@ -284,6 +285,7 @@ function DocumentDrawer({
             <div className="flex shrink-0 items-center gap-1.5">
               <button type="button" className={`ui-icon-button size-8 ${searchOpen ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "text-text-muted"}`} onClick={searchOpen ? closeSearch : openSearch} disabled={isEditing || !document.content.trim()} title="본문 검색 (⌘/Ctrl+F)" aria-label="본문 검색" aria-pressed={searchOpen}><Search className="size-3.5" /></button>
               <button type="button" className="ui-icon-button size-8 text-text-muted transition-colors hover:text-brand-primary disabled:opacity-40" onClick={() => void refreshDocument()} disabled={isRefreshing} title="문서 새로고침" aria-label="문서 새로고침"><RefreshCw className={`size-4 ${isRefreshing ? "refresh-icon-spin" : ""}`} /></button>
+              {!isEditing && <DocumentReferences key={document.id} content={document.content} />}
               <BookmarkButton document={document} />
               <button type="button" className="ui-icon-button h-8 gap-1 px-2.5 text-[11px] font-black text-brand-primary" onClick={onOpenContentApi} title="본문 편집 지시" aria-label="본문 편집 지시"><span>본문 편집</span><Braces className="size-3.5" /></button>
               <button type="button" className="ui-icon-button h-8 gap-1 px-2.5 text-[11px] font-black text-brand-primary disabled:opacity-45" onClick={() => setSampleDialogOpen(true)} disabled={isEditing || !document.content.trim()} title="현재 본문을 샘플로 등록" aria-label="현재 본문을 샘플로 등록"><BookCopy className="size-3.5" /><span>샘플 등록</span></button>

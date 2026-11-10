@@ -7,6 +7,7 @@
             <arg column="status" javaType="java.lang.String" />
             <arg column="total_amount" javaType="_long" />
             <arg column="created_at" javaType="java.time.Instant" />
+            <arg column="cancellation_pending" javaType="_boolean" />
         </constructor>
     </resultMap>
     <resultMap id="itemRow" type="com.bulkup.raptor.order.infrastructure.mybatis.OrderHistoryMapper$ItemRow">
@@ -16,13 +17,25 @@
             <arg column="quantity" javaType="_int" />
         </constructor>
     </resultMap>
+    <sql id="memberStatusFilter">
+        WHERE o.member_id = #{memberId}
+        <if test="status != null">AND o.status = #{status}</if>
+    </sql>
     <select id="count" resultType="long">
-        SELECT COUNT(*) FROM orders WHERE member_id = #{memberId}
+        SELECT COUNT(*) FROM orders o
+        <include refid="memberStatusFilter" />
     </select>
     <select id="findOrders" resultMap="orderRow">
-        SELECT id, status, total_amount, created_at FROM orders
-        WHERE member_id = #{memberId}
-        ORDER BY created_at DESC, id DESC
+        SELECT o.id, o.status, o.total_amount, o.created_at,
+            (o.paid_cancellation_pending OR (o.status = 'CREATED' AND EXISTS (
+                SELECT 1 FROM stock_reservations r
+                WHERE r.order_id = o.id AND r.status IN ('RELEASE_PENDING', 'REVIEW_REQUIRED')
+                  AND EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id
+                      AND p.status &lt;&gt; 'RETIRED' AND NOT p.keep_order_on_release)
+            ))) AS cancellation_pending
+        FROM orders o
+        <include refid="memberStatusFilter" />
+        ORDER BY o.created_at DESC, o.id DESC
         LIMIT #{size} OFFSET #{offset}
     </select>
     <select id="findItems" resultMap="itemRow">

@@ -10,5 +10,6 @@ export function useOrder(memberId: number | null, orderId: number) {
     queryFn: ({ signal }) => getOrder(orderId, signal),
     enabled: memberId !== null && Number.isSafeInteger(orderId) && orderId > 0,
     retry: false,
+    refetchInterval: query => query.state.data?.cancellationPending ? 10_000 : false,
   });
 }

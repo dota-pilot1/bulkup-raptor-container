@@ -49,7 +49,7 @@ class OrderApiIntegrationTest {
     void setup() throws Exception {
         owner = member();
         product = products.saveAndFlush(Product.create("장바구니 테스트", "설명", 1200,
-                ProductCategory.SUPPLEMENT, null, "🥛"));
+                ProductCategory.SUPPLEMENT, null, "🥛", 100));
         productIds.add(product.getId());
         client = login(owner);
     }
@@ -104,12 +104,94 @@ class OrderApiIntegrationTest {
         assertThat(created.get("shippingFee").asLong()).isEqualTo(3000);
         assertThat(created.get("items").get(0).get("productName").asText()).isEqualTo(product.getName());
         assertThat(items.findCartItems(owner.getId())).isEmpty();
+        // 이미 생성한 요청의 재시도는 이후 품절되어도 같은 주문을 반환한다.
+        transactions.executeWithoutResult(tx -> products.findByIdForStockAdjustment(product.getId()).orElseThrow().adjustStock(-100));
         assertThat(body(create(client, request), 200)).isEqualTo(created);
         assertThat(body(send(client, "GET", "/api/orders/" + orderId, ""), 200)).isEqualTo(created);
         assertThat(orderCount()).isEqualTo(1);
         request.put("addressDetail", "102호");
         assertThat(create(client, request).statusCode()).isEqualTo(409);
         assertThat(orderCount()).isEqualTo(1);
+    }
+
+    void assertStock(int physical, int reserved) {
+        var saved = products.findById(product.getId()).orElseThrow();
+        assertThat(saved.getStockQuantity()).isEqualTo(physical);
+        assertThat(saved.getReservedQuantity()).isEqualTo(reserved);
+    }
+
+    @Test
+    void shortageRejectsOrderAndKeepsCartThenAllowsReconfirmationAfterRestock() throws Exception {
+        long itemId = addItem(2);
+        var request = request(List.of(itemId), 5400, UUID.randomUUID());
+        transactions.executeWithoutResult(tx -> products.findByIdForStockAdjustment(product.getId()).orElseThrow().adjustStock(-99));
+        assertThat(body(create(client, request), 409).get("code").asText()).isEqualTo("ORDER_STOCK_INSUFFICIENT");
+        assertThat(orderCount()).isZero();
+        assertThat(items.findCartItems(owner.getId())).hasSize(1);
+        assertStock(1, 0);
+        transactions.executeWithoutResult(tx -> products.findByIdForStockAdjustment(product.getId()).orElseThrow().adjustStock(1));
+        var created = body(create(client, request), 201);
+        assertThat(created.get("status").asText()).isEqualTo("CREATED");
+        assertStock(2, 0);
+    }
+
+    @Test
+    void exactAvailableQuantityCreatesOrderWithoutReservingOrCreatingPayment() throws Exception {
+        long itemId = addItem(2);
+        transactions.executeWithoutResult(tx -> products.findByIdForStockAdjustment(product.getId()).orElseThrow().reserveStock(98));
+        long id = body(create(client, request(List.of(itemId), 5400, UUID.randomUUID())), 201).get("orderId").asLong();
+        assertStock(100, 98);
+        transactions.executeWithoutResult(tx -> {
+            for (String table : List.of("stock_reservations", "payments")) {
+                assertThat(((Number) entityManager.createNativeQuery("select count(*) from " + table + " where order_id=:id")
+                        .setParameter("id", id).getSingleResult()).longValue()).isZero();
+            }
+        });
+    }
+
+    @Test
+    void reservedUnitsAreExcludedAndAnyShortageRejectsEntireOrder() throws Exception {
+        long firstId = addItem(1);
+        var second = products.saveAndFlush(Product.create("예약된 상품", "설명", 1200,
+                ProductCategory.SUPPLEMENT, null, "🥛", 5));
+        productIds.add(second.getId());
+        long secondId = body(send(client, "POST", "/api/cart/items", "{\"productId\":" + second.getId()
+                + ",\"quantity\":1}"), 200).get("items").get(1).get("id").asLong();
+        transactions.executeWithoutResult(tx -> products.findByIdForStockAdjustment(second.getId()).orElseThrow().reserveStock(5));
+        assertThat(body(create(client, request(List.of(firstId, secondId), 5400, UUID.randomUUID())), 409)
+                .get("code").asText()).isEqualTo("ORDER_STOCK_INSUFFICIENT");
+        assertThat(orderCount()).isZero();
+        assertThat(items.findCartItems(owner.getId())).hasSize(2);
+        assertStock(100, 0);
+        assertThat(products.findById(second.getId()).orElseThrow().getReservedQuantity()).isEqualTo(5);
+    }
+
+    @Test
+    void orderWaitsForProductWriteAndChecksCommittedAvailableQuantity() throws Exception {
+        long itemId = addItem(2);
+        var request = request(List.of(itemId), 5400, UUID.randomUUID());
+        var locked = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            try {
+                var reservation = executor.submit(() -> transactions.executeWithoutResult(tx -> {
+                    products.findByIdForStockAdjustment(product.getId()).orElseThrow().reserveStock(99);
+                    locked.countDown();
+                    try { if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("release timeout"); }
+                    catch (InterruptedException error) { throw new RuntimeException(error); }
+                }));
+                assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+                var creation = executor.submit(() -> create(client, request));
+                org.assertj.core.api.Assertions.assertThatThrownBy(() -> creation.get(200, TimeUnit.MILLISECONDS))
+                        .isInstanceOf(TimeoutException.class);
+                release.countDown();
+                reservation.get(10, TimeUnit.SECONDS);
+                assertThat(body(creation.get(10, TimeUnit.SECONDS), 409).get("code").asText()).isEqualTo("ORDER_STOCK_INSUFFICIENT");
+            } finally { release.countDown(); }
+        }
+        assertThat(orderCount()).isZero();
+        assertThat(items.findCartItems(owner.getId())).hasSize(1);
+        assertStock(100, 99);
     }
 
     @Test
@@ -150,7 +232,7 @@ class OrderApiIntegrationTest {
     void ordersOnlySelectedItemsAndCanonicalizesIdOrder() throws Exception {
         long first = addItem(1);
         var second = products.saveAndFlush(Product.create("두번째", "설명", 49000,
-                ProductCategory.SUPPLEMENT, null, "🥛"));
+                ProductCategory.SUPPLEMENT, null, "🥛", 100));
         productIds.add(second.getId());
         long secondId = body(send(client, "POST", "/api/cart/items", "{\"productId\":" + second.getId()
                 + ",\"quantity\":1}"), 200).get("items").get(1).get("id").asLong();
@@ -237,6 +319,44 @@ class OrderApiIntegrationTest {
         for (var query : List.of("page=-1", "size=0", "size=51", "page=invalid"))
             assertThat(send(client, "GET", "/api/orders?" + query, "").statusCode()).isEqualTo(400);
         assertThat(body(send(client, "GET", "/api/orders?page=2&size=1", ""), 200).get("content").size()).isZero();
+    }
+
+    @Test
+    void statusFiltersApplyBeforePaginationAndCountsAndNeverIncludeOtherMembers() throws Exception {
+        long waiting = body(create(client, request(List.of(addItem(1)), 4200, UUID.randomUUID())), 201).get("orderId").asLong();
+        long firstPaid = body(create(client, request(List.of(addItem(1)), 4200, UUID.randomUUID())), 201).get("orderId").asLong();
+        long secondPaid = body(create(client, request(List.of(addItem(1)), 4200, UUID.randomUUID())), 201).get("orderId").asLong();
+        long cancelled = body(create(client, request(List.of(addItem(1)), 4200, UUID.randomUUID())), 201).get("orderId").asLong();
+        var other = member();
+        transactions.executeWithoutResult(tx -> {
+            orders.findById(firstPaid).orElseThrow().markPaid();
+            orders.findById(secondPaid).orElseThrow().markPaid();
+            orders.findById(cancelled).orElseThrow().cancelUnpaid();
+            var foreign = com.bulkup.raptor.order.domain.Order.create(other, UUID.randomUUID(), "other", "회원", "01012345678", "06236", "서울", "");
+            foreign.addItem(product, 1);
+            foreign.calculateShipping();
+            foreign.markPaid();
+            orders.saveAndFlush(foreign);
+        });
+        var paid = body(send(client, "GET", "/api/orders?status=PAID&size=1", ""), 200);
+        assertThat(paid.get("totalElements").asLong()).isEqualTo(2);
+        assertThat(paid.get("totalPages").asInt()).isEqualTo(2);
+        assertThat(paid.get("content").size()).isEqualTo(1);
+        assertThat(paid.get("content").get(0).get("orderId").asLong()).isEqualTo(secondPaid);
+        var next = body(send(client, "GET", "/api/orders?status=PAID&size=1&page=1", ""), 200);
+        assertThat(next.get("content").get(0).get("orderId").asLong()).isEqualTo(firstPaid);
+        for (var entry : Map.of("CREATED", waiting, "CANCELLED", cancelled).entrySet()) {
+            var filtered = body(send(client, "GET", "/api/orders?status=" + entry.getKey(), ""), 200);
+            assertThat(filtered.get("totalElements").asLong()).isEqualTo(1);
+            assertThat(filtered.get("content").get(0).get("orderId").asLong()).isEqualTo(entry.getValue());
+        }
+        assertThat(body(send(client, "GET", "/api/orders", ""), 200).get("totalElements").asLong()).isEqualTo(4);
+        var foreignEmpty = body(send(login(other), "GET", "/api/orders?status=CANCELLED", ""), 200);
+        assertThat(foreignEmpty.get("totalElements").asLong()).isZero();
+        assertThat(foreignEmpty.get("content").size()).isZero();
+        assertThat(body(send(client, "GET", "/api/orders?status=PAID&page=2&size=1", ""), 200).get("content").size()).isZero();
+        for (String invalid : List.of("INVALID", "paid", "ALL", ""))
+            assertThat(send(client, "GET", "/api/orders?status=" + invalid, "").statusCode()).isEqualTo(400);
     }
 
     @Test

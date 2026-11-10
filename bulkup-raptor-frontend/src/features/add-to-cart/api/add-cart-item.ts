@@ -1,9 +1,9 @@
 import { apiFetch } from "@/shared/api/client";
 import type { CartResponse } from "@/entities/cart/model/types";
 
-export function addCartItem(productId: number) {
+export function addCartItem(productId: number, quantity = 1) {
   return apiFetch<CartResponse>("/api/cart/items", {
     method: "POST",
-    body: JSON.stringify({ productId, quantity: 1 }),
+    body: JSON.stringify({ productId, quantity }),
   });
 }

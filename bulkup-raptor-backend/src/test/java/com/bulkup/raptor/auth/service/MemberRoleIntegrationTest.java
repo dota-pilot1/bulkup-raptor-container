@@ -201,11 +201,11 @@ class MemberRoleIntegrationTest {
 
     @Test
     void operationRoutesAreSeparatedFromOtherAdminRoutes() throws Exception {
-        for (String route : List.of("/api/admin/orders", "/api/admin/shipments")) {
-            assertThat(request(login(member), "GET", route, null).statusCode()).isEqualTo(403);
-            // 아직 구현되지 않은 업무 API는 권한 검사를 통과한 뒤 404를 반환한다.
-            assertThat(request(login(operator), "GET", route, null).statusCode()).isEqualTo(404);
-        }
+        assertThat(request(login(member), "GET", "/api/admin/orders", null).statusCode()).isEqualTo(403);
+        // 주문 조회는 관리자 메뉴 접근 권한으로 허용하고 배송 API의 기존 권한은 유지한다.
+        assertThat(request(login(operator), "GET", "/api/admin/orders", null).statusCode()).isEqualTo(200);
+        assertThat(request(login(member), "GET", "/api/admin/shipments", null).statusCode()).isEqualTo(403);
+        assertThat(request(login(operator), "GET", "/api/admin/shipments", null).statusCode()).isEqualTo(404);
         assertThat(request(login(operator), "GET", "/api/admin/unknown", null).statusCode())
                 .isEqualTo(403);
     }
@@ -1197,11 +1197,11 @@ class MemberRoleIntegrationTest {
     void adminEntryPermissionAllowsAllMenuReadsButNoCommands() throws Exception {
         var viewer = loginWithAdminMenuPermission();
         for (String path : List.of("/api/admin/roles", "/api/admin/permissions",
-                "/api/admin/permission-categories", "/api/admin/members", "/api/products")) {
+                "/api/admin/permission-categories", "/api/admin/members", "/api/admin/orders", "/api/admin/payments", "/api/products")) {
             assertThat(request(viewer, "GET", path, null).statusCode()).as(path).isEqualTo(200);
         }
         for (String path : List.of("/api/admin/roles", "/api/admin/permissions",
-                "/api/admin/permission-categories", "/api/products")) {
+                "/api/admin/permission-categories", "/api/admin/orders", "/api/products")) {
             assertThat(request(viewer, "POST", path, "{}").statusCode()).as(path).isEqualTo(403);
         }
         assertThat(request(viewer, "PATCH", "/api/admin/members/" + operator.getId() + "/status",

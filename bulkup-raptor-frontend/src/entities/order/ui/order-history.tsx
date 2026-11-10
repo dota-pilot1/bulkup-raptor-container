@@ -1,23 +1,24 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { OrderSummary } from "../model/order-types";
 
 const date = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-export function OrderHistory({ orders }: { orders: OrderSummary[] }) {
+export function OrderHistory({ orders, emptyMessage, renderDelivery }: { orders: OrderSummary[]; emptyMessage?: string; renderDelivery?: (order: OrderSummary) => ReactNode }) {
   if (!orders.length) return <div className="rounded-2xl border border-zinc-200 bg-white px-6 py-16 text-center">
-    <p className="font-semibold text-zinc-900">아직 주문 내역이 없어요.</p>
+    <p className="font-semibold text-zinc-900">{emptyMessage ?? "아직 주문 내역이 없어요."}</p>
     <p className="mt-2 text-sm text-zinc-500">주문한 상품과 주문 상태를 여기서 확인할 수 있어요.</p>
     <Link href="/" className="mt-6 inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800">상품 둘러보기</Link>
   </div>;
-  return <ul aria-label="주문 내역" className="space-y-4">{orders.map(order => <li key={order.orderId}>
+  return <ul aria-label="주문 내역" className="space-y-4">{orders.map(order => <li key={order.orderId} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs">
     <Link href={`/orders/${order.orderId}`} aria-label={`주문 ${order.orderId} 상세 보기`}
-      className="group block cursor-pointer overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs transition-[border-color,box-shadow,transform] duration-200 hover:border-emerald-300 hover:shadow-[0_8px_30px_-12px_rgba(0,100,70,0.18)] focus-visible:border-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600 motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none">
+      className="group block cursor-pointer bg-white transition-[border-color,box-shadow,transform] duration-200 hover:border-emerald-300 hover:shadow-[0_8px_30px_-12px_rgba(0,100,70,0.18)] focus-visible:border-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600 motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 bg-zinc-50/60 px-5 py-4 transition-colors group-hover:bg-emerald-50/50 group-focus-visible:bg-emerald-50/50 sm:px-7">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <time dateTime={order.createdAt} className="text-sm font-semibold tabular-nums text-zinc-700">{date.format(new Date(order.createdAt))}</time>
           <span className="text-xs tabular-nums text-zinc-400">주문 번호 {order.orderId}</span>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/10"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-600" />{order.status === "PAID" ? "결제 완료" : "주문 접수 · 결제 전"}</span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/10"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-600" />{order.status === "CANCELLED" ? "주문 취소됨" : order.cancellationPending ? "취소 처리 중" : order.status === "PAID" ? "결제 완료" : "주문 접수 · 결제 전"}</span>
       </div>
       <div className="flex flex-col gap-6 px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-7">
         <div className="flex min-w-0 items-center gap-4">
@@ -36,5 +37,6 @@ export function OrderHistory({ orders }: { orders: OrderSummary[] }) {
         </div>
       </div>
     </Link>
+    {renderDelivery && order.status === "PAID" && <div className="border-t border-zinc-100 bg-zinc-50/60 px-5 py-4 sm:px-7">{renderDelivery(order)}</div>}
   </li>)}</ul>;
 }

@@ -4,7 +4,9 @@ import com.bulkup.raptor.product.domain.ProductCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 public record ProductRequest(
     @NotBlank(message = "상품명을 입력해 주세요.")
@@ -27,5 +29,15 @@ public record ProductRequest(
 
     @NotBlank(message = "표시 이모지를 입력해 주세요.")
     @Size(max = 16, message = "표시 이모지는 16자 이하로 입력해 주세요.")
-    String visual
-) {}
+    String visual,
+
+    @PositiveOrZero(message = "재고 수량은 0 이상이어야 합니다.")
+    @JsonDeserialize(using = StockQuantityDeserializer.class)
+    Integer stockQuantity
+) {
+    // 기존 내부 호출은 재고 없이 생성하며, 등록 서비스가 0으로 처리한다.
+    public ProductRequest(String name, String description, Integer price, ProductCategory category,
+            String badge, String visual) {
+        this(name, description, price, category, badge, visual, null);
+    }
+}

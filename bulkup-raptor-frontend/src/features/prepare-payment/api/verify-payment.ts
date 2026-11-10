@@ -8,16 +8,17 @@ const verificationSchema = z.object({
   orderName: z.string().min(1),
   totalAmount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   currency: z.literal("KRW"),
-  paymentStatus: z.enum(["READY", "PAID"]),
-  orderStatus: z.enum(["CREATED", "PAID"]),
+  paymentStatus: z.enum(["READY", "PAID", "CANCELLED"]),
+  orderStatus: z.enum(["CREATED", "PAID", "CANCELLED"]),
   providerStatus: z.enum(["NOT_FOUND", "READY", "FAILED", "PENDING", "VIRTUAL_ACCOUNT_ISSUED", "PAID", "CANCELLED", "PARTIAL_CANCELLED"]),
   paidAt: z.string().datetime().nullable(),
   transactionId: z.string().nullable(),
   pgTxId: z.string().nullable(),
   paymentMethod: z.string().nullable(),
-  canRetry: z.boolean(),
-}).refine(v => v.paymentStatus !== "PAID" || (v.orderStatus === "PAID" && v.providerStatus === "PAID" && !!v.paidAt && !!v.transactionId && !v.canRetry))
-  .refine(v => !v.canRetry || (v.paymentStatus === "READY" && v.orderStatus === "CREATED" && ["NOT_FOUND", "READY", "FAILED"].includes(v.providerStatus)));
+  canOpenPaymentWindow: z.boolean(),
+}).refine(v => v.paymentStatus !== "PAID" || (["PAID", "CANCELLED"].includes(v.orderStatus) && v.providerStatus === "PAID" && !!v.paidAt && !!v.transactionId && !v.canOpenPaymentWindow))
+  .refine(v => v.paymentStatus !== "CANCELLED" || (v.orderStatus === "CANCELLED" && v.providerStatus === "CANCELLED" && !v.canOpenPaymentWindow))
+  .refine(v => !v.canOpenPaymentWindow || (v.paymentStatus === "READY" && v.orderStatus === "CREATED" && ["NOT_FOUND", "READY", "FAILED"].includes(v.providerStatus)));
 
 export type PaymentVerification = z.infer<typeof verificationSchema>;
 

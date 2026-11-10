@@ -14,6 +14,9 @@ public record ProductResponse(
     String badge,
     String visual,
     String imageUrl,
+    int stockQuantity,
+    int reservedQuantity,
+    int availableQuantity,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -28,6 +31,9 @@ public record ProductResponse(
             product.getBadge(),
             product.getVisual(),
             product.getImageUrl(),
+            product.getStockQuantity(),
+            product.getReservedQuantity(),
+            product.getAvailableQuantity(),
             product.getCreatedAt(),
             product.getUpdatedAt()
         );

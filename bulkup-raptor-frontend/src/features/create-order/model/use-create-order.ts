@@ -66,10 +66,13 @@ export function useCreateOrder() {
       }
       // 확정적으로 거부된 요청만 해제한다. 응답 유실·5xx·요청 ID 충돌은 그대로 보관한다.
       const rejected = error instanceof ApiError &&
-        ([400, 403, 404].includes(error.status) || (error.status === 409 && error.code === "ORDER_AMOUNT_CHANGED"));
+        ([400, 403, 404].includes(error.status) || (error.status === 409 && ["ORDER_AMOUNT_CHANGED", "ORDER_STOCK_INSUFFICIENT"].includes(error.code ?? "")));
       if (rejected) saveOrderAttempt(member.id, null);
-      toast.error(rejected && error instanceof ApiError ? error.message
-        : "주문 결과를 확인하지 못했습니다. 같은 주문 요청으로 다시 확인해 주세요.");
+      // 재고 부족은 주문서의 확인 다이얼로그에서 알린다.
+      if (!(error instanceof ApiError && error.code === "ORDER_STOCK_INSUFFICIENT")) {
+        toast.error(rejected && error instanceof ApiError ? error.message
+          : "주문 결과를 확인하지 못했습니다. 같은 주문 요청으로 다시 확인해 주세요.");
+      }
       if (rejected) {
         try { await refreshCart(member); } catch { /* 화면에서 다시 조회할 수 있다. */ }
       }
@@ -106,5 +109,6 @@ export function useCreateOrder() {
     const request = member ? readOrderAttempt(member.id) : null;
     return member && request ? send(request, member) : null;
   }
-  return { submit, retry, isPending: mutation.isPending || pendingWrites > 0 };
+  const error = mutation.variables && current(mutation.variables.member) ? mutation.error : null;
+  return { submit, retry, error, isPending: mutation.isPending || pendingWrites > 0 };
 }

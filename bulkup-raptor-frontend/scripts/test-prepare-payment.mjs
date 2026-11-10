@@ -128,11 +128,11 @@ test('401 expires the current session and discards private order cache', async t
   assert.equal(c.getQueryData(['orders', 7, 51]), undefined);
 });
 
-test('button renders pending, failed and prepared states without a preview dialog', async () => {
+test('button shows errors in a confirmation dialog and keeps prepared details inline', async () => {
   const stateUrl = dataUrl('export let state={};export const setState=x=>state=x;export const useRequestPayment=()=>state;');
   const { setState } = await import(stateUrl);
   const { PreparePaymentButton } = await import(moduleUrl(`${base}ui/prepare-payment-button.tsx`, {
-    react: import.meta.resolve('react'), 'react/jsx-runtime': import.meta.resolve('react/jsx-runtime'), './payment-response-dialog': dataUrl('export const PaymentResponseDialog=()=>null;'), '../model/use-request-payment': stateUrl, '../model/payment-result': moduleUrl(`${base}model/payment-result.ts`),
+    react: import.meta.resolve('react'), 'react/jsx-runtime': import.meta.resolve('react/jsx-runtime'), '@/shared/api/client': clientUrl, '@/shared/ui/dialog': moduleUrl('../src/shared/ui/dialog.tsx', { react: import.meta.resolve('react'), 'react/jsx-runtime': import.meta.resolve('react/jsx-runtime') }), './payment-response-dialog': dataUrl('export const PaymentResponseDialog=()=>null;'), '../model/use-request-payment': stateUrl, '../model/payment-result': moduleUrl(`${base}model/payment-result.ts`),
   }));
   const render = () => renderToStaticMarkup(React.createElement(PreparePaymentButton, { memberId: 7, order: { orderId: 51, status: 'CREATED', totalAmount: 117800 } }));
   setState({ isPending: true, isPreparing: true });
@@ -140,11 +140,47 @@ test('button renders pending, failed and prepared states without a preview dialo
   assert.match(render(), /결제 정보 확인 중/);
   setState({ error: new Error('failed') });
   assert.match(render(), /role="alert"/);
-  assert.match(render(), /결제 상태 다시 확인/);
+  assert.match(render(), /117,800원 결제하기/);
+  assert.match(render(), /role="dialog"/);
+  const { ApiError } = await import(clientUrl);
+  setState({ error: new ApiError('현재 재고보다 많이 줄일 수 없습니다.', 409, 'STOCK_INSUFFICIENT') });
+  const shortage = render();
+  assert.match(shortage, /상품 재고가 부족합니다/);
+  assert.match(shortage, /재고 다시 확인/);
+  assert.ok(!shortage.includes('현재 재고보다 많이 줄일 수 없습니다.'));
+  assert.ok(!shortage.includes('결제 상태 다시 확인'));
   setState({ data: response });
   const html = render();
   for (const text of ['결제 준비 완료', '서버 주문명 외 1종', '117,800', '결제 완료 여부는 별도로 확인합니다']) assert.ok(html.includes(text));
   assert.ok(!html.includes('dialog'));
   assert.ok(html.includes(response.paymentId));
   assert.ok(html.includes('KRW'));
+});
+
+
+test('payment retries verify on the server and continue payment in one click', async () => {
+  const stateUrl = dataUrl('export let state={};export const setState=x=>state=x;export const useRequestPayment=()=>state; // retry test');
+  const { setState } = await import(stateUrl);
+  const jsxUrl = dataUrl(`import * as runtime from '${import.meta.resolve('react/jsx-runtime')}';
+    export let buttons=[]; export const reset=()=>buttons=[];
+    export function jsx(type, props, key) { if(type==='button') buttons.push(props); return runtime.jsx(type,props,key); }
+    export function jsxs(type, props, key) { return runtime.jsxs(type,props,key); }`);
+  const jsx = await import(jsxUrl);
+  const { PreparePaymentButton } = await import(moduleUrl(`${base}ui/prepare-payment-button.tsx`, {
+    react: import.meta.resolve('react'), 'react/jsx-runtime': jsxUrl,
+    '@/shared/api/client': clientUrl,
+    '@/shared/ui/dialog': dataUrl('export const Dialog=()=>null;'),
+    './payment-response-dialog': dataUrl('export const PaymentResponseDialog=()=>null;'),
+    '../model/use-request-payment': stateUrl,
+    '../model/payment-result': moduleUrl(`${base}model/payment-result.ts`),
+  }));
+  const { ApiError } = await import(clientUrl);
+  for (const [error, expected] of [[new ApiError('재고 부족',409,'STOCK_INSUFFICIENT'), false], [new Error('조회 실패'), false]]) {
+    let checkOnly;
+    setState({error, submit: value => { checkOnly=value; }});
+    jsx.reset();
+    renderToStaticMarkup(React.createElement(PreparePaymentButton, {memberId:7,order:{orderId:51,status:'CREATED',totalAmount:117800}}));
+    jsx.buttons.find(props => props.className.includes('h-12')).onClick();
+    assert.equal(checkOnly,expected);
+  }
 });

@@ -32,9 +32,14 @@ export type Product = {
   badge: string | null;
   visual: string;
   imageUrl?: string | null;
+  stockQuantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
 };
 
 export type ProductInput = {
+  // 초기 재고는 상품 등록 시에만 전달한다.
+  stockQuantity?: number;
   name: string;
   description: string;
   price: number;

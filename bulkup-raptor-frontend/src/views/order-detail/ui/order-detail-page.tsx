@@ -7,7 +7,9 @@ import { Header } from "@/widgets/header/ui/header";
 import { currentMember } from "@/lib/api";
 import { useOrder } from "@/entities/order/model/use-order";
 import { OrderDetails } from "@/entities/order/ui/order-details";
+import { CancelOrderButton } from "@/features/cancel-order";
 import { PreparePaymentButton } from "@/features/prepare-payment";
+import { OrderDeliveryPanel } from "@/features/view-delivery/ui/order-delivery-button";
 import { ApiError } from "@/shared/api/client";
 
 const statusBoxClassName =
@@ -96,16 +98,28 @@ export default function OrderResultPage() {
     // 주문 표시와 결제 기능은 페이지에서 조합한다.
     // 회원이나 주문이 바뀌면 key를 바꿔 이전 버튼의 요청 상태를 초기화한다.
     return (
-      <OrderDetails
+      <><OrderDetails
         order={order.data}
+        deliveryContent={order.data.status === "PAID"
+          ? <OrderDeliveryPanel key={`delivery:${member.data.id}:${order.data.orderId}`} memberId={member.data.id} orderId={order.data.orderId} />
+          : order.data.cancellationPending ? null
+            : <p className="px-1 text-sm text-zinc-500">{order.data.status === "CANCELLED" ? "취소한 주문은 배송하지 않습니다." : "결제가 완료되면 배송 진행 상황을 확인할 수 있습니다."}</p>}
         paymentAction={
-          <PreparePaymentButton
-            key={`${member.data.id}:${order.data.orderId}`}
-            order={order.data}
-            memberId={member.data.id}
-          />
+          <>
+            <PreparePaymentButton
+              key={`${member.data.id}:${order.data.orderId}`}
+              order={order.data}
+              memberId={member.data.id}
+            />
+            <CancelOrderButton
+              key={`cancel:${member.data.id}:${order.data.orderId}`}
+              order={order.data}
+              memberId={member.data.id}
+            />
+          </>
         }
       />
+      </>
     );
   }
 

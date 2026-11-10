@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { ApiError } from "@/shared/api/client";
+import { Dialog } from "@/shared/ui/dialog";
 import type { OrderResponse } from "@/entities/order/model/order-types";
 import { useRequestPayment } from "../model/use-request-payment";
 import { paymentResultMessage, type PaymentResult } from "../model/payment-result";
@@ -15,9 +17,13 @@ export function PreparePaymentButton({ order, memberId }: PreparePaymentButtonPr
   // 요청과 재요청 처리는 훅에 맡기고, 버튼은 요청 상태를 표시한다.
   const payment = useRequestPayment(memberId, order.orderId);
   const [dismissedResult, setDismissedResult] = useState<PaymentResult | null>(null);
+  const [dismissedError, setDismissedError] = useState<Error | null>(null);
+  const stockInsufficient = payment.error instanceof ApiError && payment.error.code === "STOCK_INSUFFICIENT";
+  const checkOnly = order.status === "PAID" || payment.result?.status === "verified";
+  const closeError = () => setDismissedError(payment.error);
   const result = !payment.isPending && !payment.error ? payment.result : null;
 
-  if (!["CREATED", "PAID"].includes(order.status)) return null;
+  if (order.cancellationPending || !["CREATED", "PAID"].includes(order.status)) return null;
 
   let buttonLabel = order.status === "PAID" ? "결제 내역 보기" : `${order.totalAmount.toLocaleString("ko-KR")}원 결제하기`;
   if (payment.isPending) {
@@ -26,10 +32,8 @@ export function PreparePaymentButton({ order, memberId }: PreparePaymentButtonPr
     buttonLabel = "결제 내역 보기";
   } else if (payment.result?.status === "received") {
     buttonLabel = "결제 응답 수신 · 확인 필요";
-  } else if (payment.error) {
-    buttonLabel = "결제 상태 다시 확인";
-  } else if (payment.data) {
-    buttonLabel = "결제창 다시 열기";
+  } else if (stockInsufficient) {
+    buttonLabel = "재고 다시 확인";
   }
 
   // 재요청 중이거나 실패한 경우에는 이전 성공 결과를 표시하지 않는다.
@@ -41,16 +45,30 @@ export function PreparePaymentButton({ order, memberId }: PreparePaymentButtonPr
       <button
         type="button"
         disabled={payment.isPending}
-        onClick={() => void payment.submit(order.status === "PAID" || payment.result?.status === "verified" || !!payment.error)}
+        onClick={() => void payment.submit(checkOnly)}
         className="flex h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600 disabled:cursor-wait disabled:opacity-60"
       >
         {buttonLabel}
       </button>
 
       {payment.error && (
-        <p role="alert" className="mt-3 text-sm text-red-600">
-          {payment.error.message}
-        </p>
+        <Dialog
+          isOpen={!payment.isPending && dismissedError !== payment.error}
+          title={stockInsufficient ? "상품 재고가 부족합니다" : "결제 정보를 확인해 주세요"}
+          onClose={closeError}
+          footer={
+            <button type="button" onClick={closeError}
+              className="rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">
+              확인
+            </button>
+          }
+        >
+          <p role="alert" className="text-sm leading-relaxed text-zinc-600">
+            {stockInsufficient
+              ? "주문 상품 중 구매 가능한 재고가 부족한 상품이 있습니다. 상품 수량을 확인해 주세요."
+              : payment.error.message}
+          </p>
+        </Dialog>
       )}
 
       {!payment.isPending && !payment.error && payment.result && (

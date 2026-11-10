@@ -10,8 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "payments", uniqueConstraints = @UniqueConstraint(
-        name = "uk_payments_order", columnNames = "order_id"))
+@Table(name = "payments")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Payment {
@@ -19,7 +18,7 @@ public class Payment {
     @Column(name = "payment_id", length = 64)
     private String paymentId;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
@@ -54,6 +53,21 @@ public class Payment {
     private String pgTxId;
     @Column(name = "payment_method", length = 100)
     private String paymentMethod;
+
+    @Column(name = "keep_order_on_release", nullable = false)
+    private boolean keepOrderOnRelease;
+
+    public void releaseForRetry() { keepOrderOnRelease = true; }
+
+    public void releaseForCancellation() { keepOrderOnRelease = false; }
+
+    public void retire() { status = PaymentStatus.RETIRED; }
+
+    public void markCancelled() {
+        if (status == PaymentStatus.CANCELLED) return;
+        if (status != PaymentStatus.PAID) throw new IllegalStateException("완료 결제만 취소 확정한다.");
+        status = PaymentStatus.CANCELLED;
+    }
 
     public void markPaid(Instant paidAt, String transactionId, String pgTxId, String paymentMethod) {
         // 반복 검증에서는 최초에 저장한 완료 내역을 유지한다.

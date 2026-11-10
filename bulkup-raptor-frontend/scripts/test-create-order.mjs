@@ -185,3 +185,55 @@ test('result UI renders saved item snapshots, delivery and order-created rather 
   const html=renderToStaticMarkup(React.createElement(OrderDetails,{order:{...order,items:[{...order.items[0],productId:null}]}}));
   for(const pattern of [/주문 상세/,/주문 접수/,/결제 전/,/주문 당시 상품/,/수령인/,/4,200원/])assert.match(html,pattern);
 });
+
+
+test('stock rejection clears the attempt, preserves the cart, and allows a fresh confirmed request without a toast',async t=>{
+  const c=client();const ids=[];
+  t.mock.method(globalThis,'fetch',async(_url,init)=>{
+    if(init.method==='POST'){
+      ids.push(JSON.parse(init.body).requestId);
+      return ids.length===1?Response.json({detail:'재고 부족',code:'ORDER_STOCK_INSUFFICIENT'},{status:409}):Response.json(order);
+    }
+    return Response.json(cart);
+  });
+  const creation=hook(c);
+  assert.equal(await creation.submit(form,cart),null);
+  assert.equal(readOrderAttempt(7),null);
+  assert.deepEqual(c.getQueryData(['cart',7]),cart);
+  assert.deepEqual(messages,[]);
+  assert.equal(c.getQueryData(['orders',7,99]),undefined);
+  assert.equal(await creation.retry(),null);
+  assert.equal(ids.length,1);
+  assert.deepEqual(await creation.submit(form,cart),order);
+  assert.notEqual(ids[0],ids[1]);
+});
+
+test('checkout shows stock rejection in a confirmation dialog and keeps the order form editable',async()=>{
+  const reactImports={react:import.meta.resolve('react'),'react/jsx-runtime':import.meta.resolve('react/jsx-runtime')};
+  const creationUrl=dataUrl(`import {ApiError} from '${clientUrl}'; export const useCreateOrder=()=>({isPending:false,error:new ApiError('재고 부족',409,'ORDER_STOCK_INSUFFICIENT')});`);
+  const {OrderForm}=await import(moduleUrl('../src/features/create-order/ui/order-form.tsx',{
+    ...reactImports,
+    '@tanstack/react-query':import.meta.resolve('@tanstack/react-query'),
+    'react-hook-form':import.meta.resolve('react-hook-form'),
+    '@hookform/resolvers/zod':import.meta.resolve('@hookform/resolvers/zod'),
+    'next/navigation':dataUrl('export const useRouter=()=>({push:()=>{},replace:()=>{}});'),
+    '@/shared/api/client':clientUrl,
+    '@/shared/ui/dialog':moduleUrl('../src/shared/ui/dialog.tsx',reactImports),
+    '@/shared/ui/confirm-dialog':dataUrl('export const ConfirmDialog=()=>null;'),
+    '@/entities/delivery/api/addresses':dataUrl('export const addressesKey=id=>["addresses",id];export const getAddresses=async()=>[];'),
+    '@/entities/delivery/model/schema':deliverySchemaUrl,
+    '@/entities/product/ui/product-visual':dataUrl('export const ProductVisual=()=>null;'),
+    '@/entities/order/model/order-amounts':amountsUrl,
+    '../model/order-attempt-store':dataUrl('export const useOrderAttempt=()=>null;'),
+    '../model/use-create-order':creationUrl,
+    '../model/order-form-schema':schemaUrl,
+  }));
+  const c=client();c.setQueryData(['addresses',7],[]);
+  const html=renderToStaticMarkup(React.createElement(QueryClientProvider,{client:c},React.createElement(OrderForm,{memberId:7,cart})));
+  assert.match(html,/role="dialog"/);
+  assert.match(html,/상품 재고가 부족합니다/);
+  assert.match(html,/주문을 생성하지 못했습니다/);
+  assert.match(html,/>확인<\/button>/);
+  assert.ok(!html.includes('이전 주문의 결과를 확인'));
+  assert.ok(!html.includes('fieldset disabled'));
+});

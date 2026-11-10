@@ -81,6 +81,28 @@ public class PortOnePaymentClient {
         }
     }
 
+    public void cancel(String paymentId, long amount) {
+        if (secret.isBlank() || storeId.isBlank() || channelKey.isBlank())
+            throw new BusinessException(ErrorCode.PAYMENT_PROVIDER_NOT_CONFIGURED);
+        try {
+            // Fixed amount and balance guard also prevent duplicate refunds after key expiry.
+            var body = json.writeValueAsString(java.util.Map.of("storeId", storeId, "amount", amount,
+                    "currentCancellableAmount", amount, "reason", "구매자 배송 준비 중 주문 취소", "requester", "CUSTOMER"));
+            var request = HttpRequest.newBuilder(URI.create(baseUrl + "/payments/"
+                    + URLEncoder.encode(paymentId, StandardCharsets.UTF_8) + "/cancel"))
+                    .timeout(Duration.ofSeconds(20)).header("Authorization", "PortOne " + secret)
+                    .header("Content-Type", "application/json")
+                    .header("Idempotency-Key", "\"order-cancel-" + paymentId + "\"")
+                    .POST(HttpRequest.BodyPublishers.ofString(body)).build();
+            var response = http.send(request, HttpResponse.BodyHandlers.discarding());
+            if (response.statusCode() != 200) throw new BusinessException(ErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+        } catch (BusinessException error) { throw error; }
+        catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+        } catch (Exception error) { throw new BusinessException(ErrorCode.PAYMENT_PROVIDER_UNAVAILABLE); }
+    }
+
     // 현재 상점과 카카오페이 채널에서 발생한 결제인지 확인한다.
     public boolean matchesConfiguration(RemotePayment payment) {
         return storeId.equals(payment.storeId()) && channelKey.equals(payment.channelKey());

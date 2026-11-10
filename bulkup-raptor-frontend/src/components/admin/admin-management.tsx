@@ -32,7 +32,7 @@ const formatDate = (isoString: string) => {
   }
 };
 
-export function AdminManagement({ initialTab }: { initialTab: Exclude<AdminTab, "products"> }) {
+export function AdminManagement({ initialTab }: { initialTab: Exclude<AdminTab, "products" | "inventory" | "orders" | "payments"> }) {
   const queryClient = useQueryClient();
   const session = useQuery({ queryKey: ["me"], queryFn: currentMember, refetchInterval: 15_000, refetchOnWindowFocus: true });
   const menus = accessibleAdminMenus(session.data);

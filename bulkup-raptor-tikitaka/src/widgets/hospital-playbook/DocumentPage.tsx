@@ -1,3 +1,4 @@
+import DocumentReferences from "./DocumentReferences";
 import { BookmarkButton } from "@/features/hospital-playbook/bookmarks";
 import { buildDocumentDeepLink } from "@/features/hospital-playbook/document-deep-link";
 import {
@@ -431,6 +432,7 @@ export default function DocumentPage({
                       <span>본문 편집</span>
                       <Braces className="size-3.5" />
                     </button>
+                    <DocumentReferences key={documentId} content={document.data.content} />
                     <button
                       type="button"
                       onClick={() => setSampleDialogOpen(true)}

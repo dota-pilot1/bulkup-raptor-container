@@ -30,8 +30,8 @@ const typesUrl = moduleUrl(`${base}model/payment-types.ts`, { zod: import.meta.r
 const apiUrl = moduleUrl(`${base}api/prepare-payment.ts`, { '@/shared/api/client': clientUrl, '../model/payment-types': typesUrl });
 const verificationUrl = moduleUrl(`${base}api/verify-payment.ts`, { zod: import.meta.resolve('zod'), '@/shared/api/client': clientUrl });
 const { verifyPayment } = await import(verificationUrl);
-const ready = { ...prepared, orderId: 51, paymentStatus: 'READY', orderStatus: 'CREATED', providerStatus: 'READY', paidAt: null, transactionId: null, pgTxId: null, paymentMethod: null, canRetry: true };
-const paid = { ...ready, paymentStatus: 'PAID', orderStatus: 'PAID', providerStatus: 'PAID', paidAt: '2026-11-01T04:00:00Z', transactionId: 'tx-verified', pgTxId: 'pg-verified', paymentMethod: 'KAKAOPAY', canRetry: false };
+const ready = { ...prepared, orderId: 51, paymentStatus: 'READY', orderStatus: 'CREATED', providerStatus: 'READY', paidAt: null, transactionId: null, pgTxId: null, paymentMethod: null, canOpenPaymentWindow: true };
+const paid = { ...ready, paymentStatus: 'PAID', orderStatus: 'PAID', providerStatus: 'PAID', paidAt: '2026-11-01T04:00:00Z', transactionId: 'tx-verified', pgTxId: 'pg-verified', paymentMethod: 'KAKAOPAY', canOpenPaymentWindow: false };
 const prepareUrl = moduleUrl(`${base}model/use-prepare-payment.ts`, {
   react: import.meta.resolve('react'), '@tanstack/react-query': import.meta.resolve('@tanstack/react-query'),
   '@/shared/api/client': clientUrl, '../api/prepare-payment': apiUrl,
@@ -39,6 +39,7 @@ const prepareUrl = moduleUrl(`${base}model/use-prepare-payment.ts`, {
 const { useRequestPayment } = await import(moduleUrl(`${base}model/use-request-payment.ts`, {
   react: import.meta.resolve('react'), '@tanstack/react-query': import.meta.resolve('@tanstack/react-query'),
   '../api/request-payment': moduleUrl(`${base}api/request-payment.ts`, { '@portone/browser-sdk/v2': sdkUrl, '../model/payment-result': resultUrl }),
+  '@/features/cancel-order/api/cancel-order': moduleUrl('../src/features/cancel-order/api/cancel-order.ts', {zod:import.meta.resolve('zod'),'@/shared/api/client':clientUrl}),
   './use-prepare-payment': prepareUrl, '../api/verify-payment': verificationUrl, './payment-result': resultUrl, '@/shared/api/client': clientUrl,
 }));
 function setup(t) {
@@ -222,7 +223,7 @@ test('verification API sends credentials and validates paid details and identity
     return Response.json(paid);
   });
   assert.deepEqual(await verifyPayment(51, prepared.paymentId), paid);
-  for (const bad of [{ ...paid, paidAt: null }, { ...paid, totalAmount: 1.5 }, { ...paid, canRetry: true }, { ...paid, paymentId: 'other' }, { ...paid, orderId: 52 }]) {
+  for (const bad of [{ ...paid, paidAt: null }, { ...paid, totalAmount: 1.5 }, { ...paid, canOpenPaymentWindow: true }, { ...paid, paymentId: 'other' }, { ...paid, orderId: 52 }]) {
     t.mock.method(globalThis, 'fetch', async () => Response.json(bad));
     await assert.rejects(verifyPayment(51, prepared.paymentId));
   }
@@ -299,4 +300,38 @@ test('payment product images use the catalog while names and prices stay from th
   const html = renderToStaticMarkup(React.createElement(QueryClientProvider, { client: c }, React.createElement(PaymentOrderItems, { order })));
   for (const value of ['https://example.com/product.jpg', '주문 당시 상품명', '1,200', '2,400']) assert.ok(html.includes(value));
   assert.ok(!html.includes('현재 상품명')); assert.ok(!html.includes('999999'));
+});
+
+
+test('payment cannot start while a cancellation for the same order is in flight', async t => {
+  setup(t);
+  const c = client();
+  const started = deferred();
+  const release = deferred();
+  const mutation = c.getMutationCache().build(c, {
+    mutationKey: ['cancel-order', 7, 51], mutationFn: () => { started.resolve(); return release.promise; },
+  });
+  const task = mutation.execute();
+  await started.promise;
+  const fetch = t.mock.method(globalThis, 'fetch', () => { throw new Error('must not fetch'); });
+  try { await hook(c).submit(); assert.equal(fetch.mock.callCount(), 0); }
+  finally { release.resolve(); await task; }
+});
+
+test('closing or failing the payment window keeps the order and only requests payment retry',async t=>{
+  setup(t);
+  for(const response of [{code:'Cancelled',paymentId:prepared.paymentId},{code:'PGProviderError',paymentId:prepared.paymentId}]) {
+    const c=client(), paths=[];
+    t.mock.method(globalThis,'fetch',async url=>{
+      paths.push(new URL(url).pathname);
+      if(url.endsWith('/release-reservation'))return Response.json({orderId:51,orderStatus:'CREATED',inventoryStatus:'REVIEW_REQUIRED',pending:true},{status:202});
+      return Response.json(url.endsWith('/verify')?ready:prepared);
+    });
+    sdk.setHandler(async()=>response);
+    await hook(c).submit();
+    assert.equal(c.getQueryData(['orders',7,51]).status,'CREATED');
+    assert.ok(paths.includes('/api/orders/51/payments/release-reservation'));
+    assert.ok(!paths.includes('/api/orders/51/payments/cancel'));
+    t.mock.restoreAll();
+  }
 });

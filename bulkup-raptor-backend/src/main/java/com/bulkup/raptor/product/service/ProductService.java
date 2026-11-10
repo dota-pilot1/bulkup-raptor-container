@@ -51,13 +51,19 @@ public class ProductService {
     }
 
     private ProductResponse saveProduct(ProductRequest request, UploadedImage image) {
+        // 이전 클라이언트의 생략·null 요청은 초기 재고 0으로 등록한다.
+        int stockQuantity = request.stockQuantity() == null ? 0 : request.stockQuantity();
+        if (stockQuantity < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
         Product product = Product.create(
             request.name().trim(),
             request.description().trim(),
             request.price(),
             request.category(),
             normalizeBadge(request.badge()),
-            request.visual().trim()
+            request.visual().trim(),
+            stockQuantity
         );
         product.attachImage(image);
         return ProductResponse.from(productRepository.save(product));
@@ -65,14 +71,16 @@ public class ProductService {
 
     @Transactional
     public ProductResponse update(Long id, ProductRequest request) {
-        Product product = findProduct(id);
+        Product product = productRepository.findByIdForStockAdjustment(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
         changeProduct(product, request);
         return ProductResponse.from(product);
     }
 
     @Transactional
     public ProductResponse updateWithImage(Long id, ProductRequest request, String key, Long memberId) {
-        Product product = findProduct(id);
+        Product product = productRepository.findByIdForStockAdjustment(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
         var image = images.findOwnedImage(key, memberId, UploadedImage.Status.STORED)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_IMAGE_NOT_AVAILABLE));
         changeProduct(product, request);
@@ -82,6 +90,7 @@ public class ProductService {
     }
 
     private void changeProduct(Product product, ProductRequest request) {
+        // 일반 상품 수정은 초기 재고 입력값을 사용하지 않는다. 증감은 별도 기능으로 구현한다.
         product.change(
             request.name().trim(),
             request.description().trim(),
@@ -94,7 +103,8 @@ public class ProductService {
 
     @Transactional
     public void delete(Long id) {
-        Product product = findProduct(id);
+        Product product = productRepository.findByIdForStockAdjustment(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
         productRepository.delete(product);
     }
 
