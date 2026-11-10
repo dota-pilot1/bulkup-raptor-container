@@ -15,11 +15,13 @@ function moduleUrl(path, imports = {}) {
 }
 const queryUrl = dataUrl('export const state = { result: null, options: null }; export function useQuery(options) { state.options = options; return state.result; }');
 const { state } = await import(queryUrl);
+const navUrl = dataUrl('export const nav = { pathname: "/admin/products" }; export function usePathname() { return nav.pathname; } export function redirect(url) { throw new Error("REDIRECT:" + url); }');
+const { nav } = await import(navUrl);
 const accessUrl = moduleUrl('../src/entities/session/model/admin-access.ts');
 const guardUrl = moduleUrl('../src/components/admin/admin-access-guard.tsx', {
   'react/jsx-runtime': import.meta.resolve('react/jsx-runtime'),
   'next/link': dataUrl(`import React from ${JSON.stringify(import.meta.resolve('react'))}; export default function Link(props) { return React.createElement('a', props); }`),
-  'next/navigation': dataUrl('export function redirect(url) { throw new Error("REDIRECT:" + url); }'),
+  'next/navigation': navUrl,
   '@tanstack/react-query': queryUrl,
   '@/entities/session': accessUrl,
   '@/lib/api': dataUrl('export async function currentMember() {}'),
@@ -49,6 +51,16 @@ test('cached administrator must wait for fresh entry validation', () => {
   assert.ok(!render().includes('PRIVATE_ADMIN_CONTENT'));
   result({ data: null });
   assert.throws(render, /REDIRECT:\/login/);
+});
+
+test('delivery driver enters only the delivery route', () => {
+  const driver = { id: 9, permissions: ['DELIVERY_HANDLE'], roles: [{ code: 'DELIVERY_DRIVER' }] };
+  result({ data: driver });
+  nav.pathname = '/admin/products';
+  assert.ok(!render().includes('PRIVATE_ADMIN_CONTENT'));
+  nav.pathname = '/admin/deliveries';
+  assert.match(render(), /PRIVATE_ADMIN_CONTENT/);
+  nav.pathname = '/admin/products';
 });
 
 test('authenticated member without menu permission sees access denial', () => {

@@ -61,7 +61,10 @@ export function ProductCard({ product }: { product: Product }) {
         <p className="text-xs font-medium text-emerald-700">{product.categoryLabel}</p>
         <h3 className="mt-1 font-semibold text-zinc-950">{product.name}</h3>
         <p className="mt-1 text-sm text-zinc-500">{product.description}</p>
-        <p className="mt-3 text-sm font-bold text-zinc-950">{formatPrice(product.price)}</p>
+        <div className="mt-3 flex items-baseline justify-between gap-3">
+          <p className="text-sm font-bold text-zinc-950">{formatPrice(product.price)}</p>
+          <p className={`text-xs font-semibold tabular-nums ${soldOut ? "text-zinc-400" : "text-zinc-600"}`}>재고 {product.availableQuantity.toLocaleString("ko-KR")}개</p>
+        </div>
       </div>
       <Dialog
         isOpen={isConfirmOpen}

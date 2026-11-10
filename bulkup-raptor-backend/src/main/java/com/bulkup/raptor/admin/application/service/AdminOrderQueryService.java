@@ -11,6 +11,8 @@ import com.bulkup.raptor.order.domain.Order;
 import com.bulkup.raptor.order.repository.OrderRepository;
 import com.bulkup.raptor.payment.repository.PaymentRepository;
 import jakarta.persistence.criteria.Predicate;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class AdminOrderQueryService {
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private final OrderRepository orders;
     private final PaymentRepository payments;
     private final DeliveryRepository deliveries;
@@ -39,9 +42,22 @@ public class AdminOrderQueryService {
 
     @Transactional(readOnly = true)
     public AdminOrderPageResponse list(int page, int size, String search, AdminOrderStatus status, boolean cancellable) {
+        return list(page, size, search, status, cancellable, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminOrderPageResponse list(int page, int size, String search, AdminOrderStatus status, boolean cancellable,
+            LocalDate from, LocalDate to) {
+        if ((from == null) != (to == null) || (from != null && from.isAfter(to))) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
         String term = search.trim().toLowerCase(Locale.ROOT);
         Specification<Order> condition = (root, query, builder) -> {
             var predicates = new ArrayList<Predicate>();
+            if (from != null) {
+                predicates.add(builder.greaterThanOrEqualTo(root.get("createdAt"), from.atStartOfDay(SEOUL).toInstant()));
+                predicates.add(builder.lessThan(root.get("createdAt"), to.plusDays(1).atStartOfDay(SEOUL).toInstant()));
+            }
             if (!term.isEmpty()) {
                 String escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
                 var member = root.join("member");

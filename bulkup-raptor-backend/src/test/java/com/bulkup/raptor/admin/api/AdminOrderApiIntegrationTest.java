@@ -23,6 +23,7 @@ import com.bulkup.raptor.product.repository.ProductRepository;
 import com.bulkup.raptor.role.repository.RoleRepository;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -168,6 +169,27 @@ class AdminOrderApiIntegrationTest {
         mvc.perform(get("/api/admin/orders/" + Long.MAX_VALUE).with(user("viewer")
                 .authorities(new SimpleGrantedAuthority("MENU_ADMIN_ACCESS"))))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+    }
+
+    @Test
+    void dateFilterUsesSeoulDaysOnCreatedAtAndKeepsStatusCounts() throws Exception {
+        em.createNativeQuery("update orders set created_at = :at where id = :id")
+                .setParameter("at", Instant.parse("2026-10-31T14:00:00Z")).setParameter("id", ids.getFirst()).executeUpdate();
+        em.clear();
+        mvc.perform(get("/api/admin/orders").param("search", prefix).param("from", "2026-11-01").param("to", "2026-11-01")
+                .with(user("viewer").authorities(new SimpleGrantedAuthority("MENU_ADMIN_ACCESS"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(get("/api/admin/orders").param("search", prefix).param("from", "2026-10-26").param("to", "2026-11-01")
+                .param("status", "CREATED")
+                .with(user("viewer").authorities(new SimpleGrantedAuthority("MENU_ADMIN_ACCESS"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(get("/api/admin/orders").param("from", "2026-11-02").param("to", "2026-11-01")
+                .with(user("viewer").authorities(new SimpleGrantedAuthority("MENU_ADMIN_ACCESS"))))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+        mvc.perform(get("/api/admin/orders").param("from", "2026-11-01")
+                .with(user("viewer").authorities(new SimpleGrantedAuthority("MENU_ADMIN_ACCESS"))))
+                .andExpect(status().isBadRequest());
+        assertThat(service.list(0, 10, prefix, null, false, LocalDate.parse("2026-11-01"), LocalDate.parse("2026-11-01")).totalElements()).isEqualTo(2);
     }
 
     @Test

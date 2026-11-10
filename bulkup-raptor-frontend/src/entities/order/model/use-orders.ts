@@ -11,7 +11,7 @@ export function useOrders(memberId: number | null, page = 0, status: OrderFilter
     queryFn: ({ signal }) => getOrders(page, signal, status),
     enabled: memberId !== null && Number.isSafeInteger(page) && page >= 0,
     retry: false,
-    refetchInterval: query => query.state.data?.content.some(order => order.cancellationPending) ? 10_000 : false,
+    refetchInterval: query => query.state.data?.content.some(order => order.cancellationPending || (order.status === "CREATED" && order.reservationExpiresAt)) ? 15_000 : false,
   });
 }
 

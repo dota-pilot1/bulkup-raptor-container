@@ -8,6 +8,8 @@
             <arg column="total_amount" javaType="_long" />
             <arg column="created_at" javaType="java.time.Instant" />
             <arg column="cancellation_pending" javaType="_boolean" />
+            <arg column="reservation_expires_at" javaType="java.time.Instant" />
+            <arg column="cancellation_reason" javaType="java.lang.String" />
         </constructor>
     </resultMap>
     <resultMap id="itemRow" type="com.bulkup.raptor.order.infrastructure.mybatis.OrderHistoryMapper$ItemRow">
@@ -32,7 +34,15 @@
                 WHERE r.order_id = o.id AND r.status IN ('RELEASE_PENDING', 'REVIEW_REQUIRED')
                   AND EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id
                       AND p.status &lt;&gt; 'RETIRED' AND NOT p.keep_order_on_release)
-            ))) AS cancellation_pending
+            ))) AS cancellation_pending,
+            CASE
+                WHEN o.status = 'CREATED'
+                    AND EXISTS (SELECT 1 FROM stock_reservations r WHERE r.order_id = o.id AND r.status IN ('RESERVED', 'RELEASE_PENDING', 'REVIEW_REQUIRED'))
+                    AND NOT EXISTS (SELECT 1 FROM stock_reservations r WHERE r.order_id = o.id AND r.status NOT IN ('RESERVED', 'RELEASE_PENDING', 'REVIEW_REQUIRED'))
+                THEN (SELECT MIN(r.expires_at) FROM stock_reservations r WHERE r.order_id = o.id)
+                ELSE NULL
+            END AS reservation_expires_at,
+            o.cancellation_reason
         FROM orders o
         <include refid="memberStatusFilter" />
         ORDER BY o.created_at DESC, o.id DESC

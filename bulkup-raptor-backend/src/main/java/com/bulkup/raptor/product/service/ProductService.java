@@ -23,7 +23,21 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductResponse> list() {
-        return productRepository.findAllByOrderByIdAsc().stream().map(ProductResponse::from).toList();
+        return productRepository.findAllForCatalog().stream().map(ProductResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductResponse> listForAdmin() {
+        return productRepository.findAllForAdmin().stream().map(ProductResponse::from).toList();
+    }
+
+    @Transactional
+    public ProductResponse setForSale(Long id, boolean forSale) {
+        Product product = productRepository.findByIdForStockAdjustment(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+        product.setForSale(forSale);
+        productRepository.flush();
+        return ProductResponse.from(product);
     }
 
     @Transactional(readOnly = true)

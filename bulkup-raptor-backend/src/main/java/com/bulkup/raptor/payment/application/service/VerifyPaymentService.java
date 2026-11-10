@@ -10,6 +10,8 @@ import com.bulkup.raptor.payment.domain.Payment;
 import com.bulkup.raptor.payment.domain.PaymentStatus;
 import com.bulkup.raptor.payment.infrastructure.PortOnePaymentClient;
 import com.bulkup.raptor.payment.repository.PaymentRepository;
+import com.bulkup.raptor.order.domain.Order;
+import java.time.Instant;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -107,7 +109,8 @@ public class VerifyPaymentService {
                 if (payment.getStatus() != PaymentStatus.READY || !"CREATED".equals(order.getStatus()))
                     throw new BusinessException(ErrorCode.PAYMENT_VERIFICATION_CONFLICT);
                 if (stock.needsReconciliation(order)) {
-                    if (requireActiveMember && payment.isKeepOrderOnRelease()) stock.resumeForRetry(order);
+                    if (reservationExpired(order)) releaseExpired(order);
+                    else if (requireActiveMember && payment.isKeepOrderOnRelease()) stock.resumeForRetry(order);
                     else stock.review(order);
                 }
                 return response(payment, "NOT_FOUND", stock.hasValidReservation(order));
@@ -155,14 +158,18 @@ public class VerifyPaymentService {
             if (!Set.of("READY", "FAILED", "PENDING", "VIRTUAL_ACCOUNT_ISSUED", "CANCELLED", "PARTIAL_CANCELLED").contains(remote.status()))
                 throw new BusinessException(ErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
             if (order.isInventoryManaged() && stock.needsReconciliation(order)) {
-                if ("FAILED".equals(remote.status()) && !payment.isKeepOrderOnRelease()) stock.release(order, true);
+                if (reservationExpired(order) && Set.of("READY", "FAILED").contains(remote.status()))
+                    releaseExpired(order);
+                else if ("FAILED".equals(remote.status()) && !payment.isKeepOrderOnRelease()) releaseIfExpired(order);
                 else if (requireActiveMember && payment.isKeepOrderOnRelease()
                         && Set.of("READY", "FAILED").contains(remote.status())) stock.resumeForRetry(order);
             }
             // Only a final cancellation releases retryable inventory. Ambiguous states remain held.
             if (order.isInventoryManaged() && "CANCELLED".equals(remote.status())
                     && remote.cancelledAmount() == remote.totalAmount()) {
-                stock.release(order, !payment.isKeepOrderOnRelease());
+                if (reservationExpired(order)) releaseExpired(order);
+                else if (payment.isKeepOrderOnRelease()) stock.release(order, false);
+                else releaseIfExpired(order);
             } else if (!"FAILED".equals(remote.status()) && stock.needsReconciliation(order)) {
                 stock.review(order);
             }
@@ -177,6 +184,20 @@ public class VerifyPaymentService {
             });
         }
         return result;
+    }
+
+    private boolean reservationExpired(Order order) {
+        var expiresAt = stock.snapshot(order).expiresAt();
+        return expiresAt != null && !expiresAt.isAfter(Instant.now());
+    }
+
+    private void releaseExpired(Order order) {
+        stock.expireUnpaid(order);
+    }
+
+    private void releaseIfExpired(Order order) {
+        if (reservationExpired(order)) releaseExpired(order);
+        else stock.release(order, true);
     }
 
     private VerifyPaymentResponse response(Payment payment, String providerStatus, boolean canOpenPaymentWindow) {

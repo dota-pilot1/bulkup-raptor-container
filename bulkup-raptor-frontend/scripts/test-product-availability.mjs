@@ -32,7 +32,7 @@ const render=value=>renderToStaticMarkup(React.createElement(ProductCard,{produc
 test('zero physical stock and fully reserved stock both show sold out and prevent adding',()=>{
   for(const value of [{...product,stockQuantity:0,availableQuantity:0},{...product,reservedQuantity:10,availableQuantity:0}]){
     add.reset();const html=render(value);
-    assert.match(html,/품절/);assert.match(html,/role="status"/);
+    assert.match(html,/품절/);assert.match(html,/재고 0개/);assert.match(html,/role="status"/);
     assert.ok(!html.includes('장바구니에 담기'));assert.ok(!html.includes('BEST'));
     assert.equal(dialog.props.isOpen,false);
     findAddButton(dialog.props.children).props.onClick();assert.equal(add.calls,0);
@@ -40,7 +40,7 @@ test('zero physical stock and fully reserved stock both show sold out and preven
 });
 test('one available unit keeps the add action and normal product badge',()=>{
   add.reset();const html=render({...product,reservedQuantity:9,availableQuantity:1});
-  assert.ok(!html.includes('품절'));assert.match(html,/테스트 상품 장바구니에 담기/);assert.match(html,/BEST/);
+  assert.ok(!html.includes('품절'));assert.match(html,/재고 1개/);assert.match(html,/테스트 상품 장바구니에 담기/);assert.match(html,/BEST/);
   const details=renderToStaticMarkup(React.createElement(React.Fragment,null,dialog.props.children)).replaceAll('<!-- -->','');
   assert.match(details,/현재 구매 가능 1개/);
   assert.ok(!details.includes('현재 구매 가능 10개'));

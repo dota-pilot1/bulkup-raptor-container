@@ -135,6 +135,7 @@ test('401 clears the session and private order caches',async t=>{
 });
 
 const reactImports={react:import.meta.resolve('react'),'react/jsx-runtime':import.meta.resolve('react/jsx-runtime')};
+const deadlineUrl=moduleUrl('../src/entities/order/ui/payment-deadline.tsx',reactImports);
 const stateUrl=dataUrl('export let state={isPending:false};export const setState=x=>state=x;export const useCancelOrder=()=>state;');
 const {setState}=await import(stateUrl);
 const dialogUrl=moduleUrl('../src/shared/ui/dialog.tsx',reactImports);
@@ -169,9 +170,9 @@ test('unpaid and preparing paid orders offer cancellation; shipping stages only 
 });
 
 test('cancelled orders display cancellation in detail and history',async()=>{
-  const {OrderDetails}=await import(moduleUrl('../src/entities/order/ui/order-details.tsx',reactImports));
+  const {OrderDetails}=await import(moduleUrl('../src/entities/order/ui/order-details.tsx',{...reactImports,'./payment-deadline':deadlineUrl}));
   const {OrderHistory}=await import(moduleUrl('../src/entities/order/ui/order-history.tsx',{
-    ...reactImports,'next/link':dataUrl(`import React from '${import.meta.resolve('react')}';export default function Link({children,...props}){return React.createElement('a',props,children);}`),
+    ...reactImports,'./payment-deadline':deadlineUrl,'next/link':dataUrl(`import React from '${import.meta.resolve('react')}';export default function Link({children,...props}){return React.createElement('a',props,children);}`),
   }));
   const value={...order,status:'CANCELLED',items:[],itemsTotal:2400,shippingFee:3000,delivery:{recipientName:'테스트',phone:'01012345678',postalCode:'12345',address:'서울',addressDetail:''},createdAt:'2026-11-04T00:00:00Z'};
   const detail=renderToStaticMarkup(React.createElement(OrderDetails,{order:value}));
@@ -180,6 +181,7 @@ test('cancelled orders display cancellation in detail and history',async()=>{
   assert.match(renderToStaticMarkup(React.createElement(OrderDetails,{order:{...value,cancellationReason:'중복 주문'}})),/취소 사유/);
   const history=renderToStaticMarkup(React.createElement(OrderHistory,{orders:[value]}));
   assert.match(history,/주문 취소/);assert.ok(!history.includes('주문 접수 · 결제 전'));
+  assert.match(renderToStaticMarkup(React.createElement(OrderHistory,{orders:[{...value,cancellationReason:'결제 시간이 지나 주문을 취소했다'}]})),/결제 시간이 지나 주문을 취소했다/);
 });
 
 

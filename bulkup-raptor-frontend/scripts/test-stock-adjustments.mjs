@@ -138,7 +138,7 @@ const { InventoryManagement } = await import(moduleUrl('../src/components/admin/
   'next/link': url('export default function Link(){return null}'),
   '@tanstack/react-query': parentQueryUrl,
   '@/entities/session': url('export function canAccessAdmin(member){return member.permissions.includes("MENU_ADMIN_ACCESS")}export function hasPermission(member,code){return member?.permissions.includes(code)??false}'),
-  '@/lib/api': url('export function currentMember(){}export function listProducts(){}'),
+  '@/lib/api': url('export function currentMember(){}export function listProducts(){}export function listAdminProducts(){}export function setProductSale(){}'),
   './admin-navigation': url('export function AdminNavigation(){return null}'),
   './product-management-list': url('export function ProductManagementList(){return null}'),
   './inventory-detail': url('export function InventoryDetail(){return null}'),
@@ -206,6 +206,45 @@ test('tab keyboard navigation moves selection and focus with arrows, Home and En
   tab(detail(),'재고 현황·조정').props.onKeyDown(event('End'));assert.equal(tabState.active,'history');
   tab(detail(),'변경 이력').props.onKeyDown(event('ArrowLeft'));assert.equal(tabState.active,'current');
   tab(detail(),'재고 현황·조정').props.onKeyDown(event('Tab'));assert.equal(prevented,4);
+});
+const stockListUrl = moduleUrl('../src/components/admin/product-management-list.tsx', {
+  react: import.meta.resolve('react'),
+  'react/jsx-runtime': import.meta.resolve('react/jsx-runtime'),
+  '@/entities/product/model/product': moduleUrl('../src/entities/product/model/product.ts'),
+  '@/entities/product/ui/product-image-preview': url('export function ProductImagePreview(){return null}'),
+  '@/components/ui/select': url('export function Select(){return null}'),
+  '@/components/ui/badge': url(`import React from ${JSON.stringify(import.meta.resolve('react'))}; export function Badge({children}){return React.createElement('span', null, children)}`),
+});
+const { matchesStockNeed, ProductManagementList } = await import(stockListUrl);
+const stockProduct = (id, name, availableQuantity) => ({ id, name, description: '설명', price: 1000, category: 'SNACK', categoryLabel: '간식', badge: null, visual: '🍪', stockQuantity: availableQuantity, reservedQuantity: 0, availableQuantity });
+test('stock need filter keeps sellable products out of sold-out and low stock', () => {
+  const rice = stockProduct(670, '떡국', 17);
+  const empty = stockProduct(1, '품절 간식', 0);
+  const low = stockProduct(2, '부족 간식', 5);
+  const edge = stockProduct(3, '한 개', 1);
+  assert.equal(matchesStockNeed(rice, 'OUT'), false);
+  assert.equal(matchesStockNeed(rice, 'LOW'), false);
+  assert.equal(matchesStockNeed(empty, 'OUT'), true);
+  assert.equal(matchesStockNeed(empty, 'LOW'), false);
+  assert.equal(matchesStockNeed(low, 'LOW'), true);
+  assert.equal(matchesStockNeed(edge, 'LOW'), true);
+  assert.equal(matchesStockNeed(rice, 'ALL'), true);
+  const paused = renderToStaticMarkup(React.createElement(ProductManagementList, {
+    products: [{ id: 3, name: '중지 상품', description: '설명', price: 1000, category: 'SNACK', categoryLabel: '간식', badge: null, visual: 'X', stockQuantity: 4, reservedQuantity: 0, availableQuantity: 4, forSale: false }],
+    isPending: false, isError: false, selectedId: null, onSelect() {}, selectionLabel: '선택', controls: 'editor', onRetry() {},
+  }));
+  assert.match(paused, /판매 중지/);
+  const html = renderToStaticMarkup(React.createElement(ProductManagementList, {
+    title: '재고 목록', products: [rice, empty, low], isPending: false, isError: false, selectedId: null,
+    onSelect() {}, selectionLabel: '재고 조회', controls: 'inventory-detail', showPrice: false, showStockNeedFilter: true, onRetry() {},
+  }));
+  assert.ok(html.includes('>전체</button>'));
+  assert.ok(html.includes('>품절</button>'));
+  assert.ok(html.includes('>부족</button>'));
+  assert.ok(html.includes('떡국'));
+  assert.ok(html.includes('구매 가능 17개'));
+  assert.ok(html.includes('품절 간식'));
+  assert.ok(html.includes('aria-pressed="true"'));
 });
 test('history refresh keeps current tab/form and resets only history identity',()=>{
   tabState.reset();const before=detail();const after=detail({historyVersion:1});

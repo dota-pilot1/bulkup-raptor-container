@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { OrderResponse } from "../model/order-types";
+import { PaymentDeadline } from "./payment-deadline";
 
 type OrderDetailsProps = {
   order: OrderResponse;
@@ -25,6 +26,7 @@ export function OrderDetails({ order, paymentAction, deliveryContent }: OrderDet
             <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
             {order.status === "CANCELLED" ? "주문 취소됨" : order.cancellationPending ? "취소 처리 중" : order.status === "PAID" ? "결제 완료" : "주문 접수 · 결제 전"}
           </span>
+          {order.status === "CREATED" && <PaymentDeadline expiresAt={order.reservationExpiresAt} />}
           {(order.status === "CANCELLED" || order.cancellationPending) && order.cancellationReason?.trim() && (
             <p className="max-w-xs text-right text-xs leading-relaxed text-zinc-500">취소 사유 <span className="whitespace-pre-wrap break-words text-zinc-800">{order.cancellationReason.trim()}</span></p>
           )}

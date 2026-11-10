@@ -88,7 +88,7 @@ export function Dialog({
   return (
     <div
       ref={dialogRef}
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity ${fullScreen ? "" : "p-4"}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center whitespace-normal bg-black/60 transition-opacity ${fullScreen ? "" : "p-4"}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
@@ -108,7 +108,7 @@ export function Dialog({
               </h2>
             )}
             {description && (
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-2 whitespace-normal break-keep text-sm leading-relaxed text-zinc-500">
                 {description}
               </p>
             )}

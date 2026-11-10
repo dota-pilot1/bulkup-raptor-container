@@ -38,6 +38,17 @@ export function listProducts() {
   return apiFetch<Product[]>("/api/products");
 }
 
+export function listAdminProducts() {
+  return apiFetch<Product[]>("/api/admin/products");
+}
+
+export function setProductSale(id: number, forSale: boolean) {
+  return apiFetch<Product>(`/api/admin/products/${id}/sale`, {
+    method: "PATCH",
+    body: JSON.stringify({ forSale }),
+  });
+}
+
 export function createProduct(payload: ProductInput) {
   return apiFetch<Product>("/api/products", {
     method: "POST",

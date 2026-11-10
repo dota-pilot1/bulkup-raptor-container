@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { catalogNav, categoryFromQuery, categoryHref } from "@/entities/product/model/product";
 import { currentMember, logout } from "@/lib/api";
-import { canAccessAdmin, MemberAvatar, type MemberSession } from "@/entities/session";
+import { canAccessAdmin, canAccessDeliveryAdmin, MemberAvatar, type MemberSession } from "@/entities/session";
 import { useCart } from "@/entities/cart/model/use-cart";
 import { ApiError } from "@/shared/api/client";
 import { LoginDialog } from "@/features/login";
@@ -44,7 +44,8 @@ export function Header({ fullWidth = false, initialCartOpen = false }: { fullWid
   const member = useQuery({ queryKey: ["me"], queryFn: currentMember });
   const memberId = member.data?.id ?? null;
   const cart = useCart(memberId);
-  const showAdminMenu = canAccessAdmin(member.data);
+  const showOperations = canAccessAdmin(member.data);
+  const showDelivery = canAccessDeliveryAdmin(member.data);
   const signOut = useMutation({
     mutationFn: logout,
     onSuccess: async () => {
@@ -114,14 +115,14 @@ export function Header({ fullWidth = false, initialCartOpen = false }: { fullWid
             </button>
             <span className="mx-1 hidden h-5 w-px bg-zinc-200 sm:block" aria-hidden="true" />
 
-            {showAdminMenu && (
+            {showDelivery && (
               <nav aria-label="운영 업무" className="hidden items-center gap-1.5 lg:flex">
-              <Link
+              {showOperations && <Link
                 href="/admin"
                 className="hidden h-10 items-center justify-center rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 lg:inline-flex"
               >
                 운영 관리
-              </Link>
+              </Link>}
               <Link href="/admin/deliveries"
                 className="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                 배송 관리
@@ -171,10 +172,10 @@ export function Header({ fullWidth = false, initialCartOpen = false }: { fullWid
                       >
                         주문 내역
                       </Link>
-                      {showAdminMenu && (
+                      {showDelivery && (
                         <div className="lg:hidden">
                           <div role="separator" className="mx-2 my-1 h-px bg-zinc-100" />
-                          <a
+                          {showOperations && <a
                             href="/admin"
                             role="menuitem"
                             className="flex min-h-10 items-center justify-between gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950"
@@ -183,7 +184,7 @@ export function Header({ fullWidth = false, initialCartOpen = false }: { fullWid
                             <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 17 17 7M7 7h10v10" />
                             </svg>
-                          </a>
+                          </a>}
                           <Link href="/admin/deliveries" role="menuitem" onClick={() => setIsAccountOpen(false)}
                             className="flex min-h-10 items-center rounded-lg px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50">
                             배송 관리

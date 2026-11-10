@@ -8,7 +8,9 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import java.util.List;
@@ -44,8 +46,10 @@ public class AdminOrderController {
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
             @RequestParam(defaultValue = "") @Size(max = 100) String search,
             @RequestParam(required = false) AdminOrderStatus status,
-            @RequestParam(defaultValue = "false") boolean cancellable) {
-        return orders.list(page, size, search, status, cancellable);
+            @RequestParam(defaultValue = "false") boolean cancellable,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return orders.list(page, size, search, status, cancellable, from, to);
     }
 
     @GetMapping("/{orderId}")

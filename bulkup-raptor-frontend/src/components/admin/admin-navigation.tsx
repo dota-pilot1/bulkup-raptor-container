@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { adminMenuGroups, adminMenus, type AdminTab } from "@/entities/session";
 
-type Props = { activeTab: AdminTab; productCount?: number; memberCount?: number };
+type Menu = (typeof adminMenus)[number];
+type Props = { activeTab: AdminTab; productCount?: number; memberCount?: number; menus?: readonly Menu[] };
 
-export function AdminNavigation({ activeTab, productCount, memberCount }: Props) {
+export function AdminNavigation({ activeTab, productCount, memberCount, menus = adminMenus }: Props) {
+  const visibleGroups = adminMenuGroups.filter(group => menus.some(menu => menu.group === group.id));
   return (
     <aside className="w-full shrink-0 lg:sticky lg:top-24 lg:w-52">
       <nav aria-label="관리 메뉴" className="flex gap-4 overflow-x-auto rounded-2xl border border-zinc-200 bg-white p-3 shadow-xs lg:block">
-        {adminMenuGroups.map(group => (
+        {visibleGroups.map(group => (
           <section key={group.id} aria-labelledby={`admin-menu-${group.id}`}
             className="min-w-40 shrink-0 lg:min-w-0 lg:border-t lg:border-zinc-100 lg:pt-4 lg:mt-4 lg:first:mt-0 lg:first:border-0 lg:first:pt-0">
             <h2 id={`admin-menu-${group.id}`} className="px-3 pb-2 pt-1 text-xs font-semibold text-zinc-400">{group.label}</h2>
             <ul className="space-y-1">
-              {adminMenus.filter(menu => menu.group === group.id).map(({ id, label, href }) => {
+              {menus.filter(menu => menu.group === group.id).map(({ id, label, href }) => {
                 const active = activeTab === id;
                 const count = id === "products" ? productCount : id === "members" ? memberCount : undefined;
                 return <li key={id}><Link href={href}

@@ -79,6 +79,9 @@ public class SecurityConfig {
                                                 HttpMethod.GET, "/api/products", "/api/products/**")
                                         .permitAll()
                                         // Menu permissions permit reads only. Commands retain their existing guards.
+                                        .requestMatchers(HttpMethod.GET, "/api/admin/products")
+                                        .access(new WebExpressionAuthorizationManager(
+                                                "hasAuthority('MENU_ADMIN_ACCESS') or hasAuthority('PRODUCT_MANAGE')"))
                                         .requestMatchers(HttpMethod.GET, "/api/admin/products/*/stock-adjustments")
                                         .hasAuthority("MENU_ADMIN_ACCESS")
                                         .requestMatchers(HttpMethod.POST, "/api/admin/products/*/stock-adjustments")
@@ -88,9 +91,9 @@ public class SecurityConfig {
                                         .requestMatchers(HttpMethod.GET, "/api/admin/payments", "/api/admin/payments/**")
                                         .hasAuthority("MENU_ADMIN_ACCESS")
                                         .requestMatchers(HttpMethod.GET, "/api/admin/deliveries", "/api/admin/deliveries/**")
-                                        .hasAuthority("MENU_ADMIN_ACCESS")
+                                        .hasAnyAuthority("MENU_ADMIN_ACCESS", "DELIVERY_HANDLE")
                                         .requestMatchers("/api/admin/deliveries", "/api/admin/deliveries/**")
-                                        .hasAuthority("SHIPPING_MANAGE")
+                                        .hasAnyAuthority("SHIPPING_MANAGE", "DELIVERY_HANDLE")
                                         .requestMatchers(HttpMethod.GET, "/api/admin/roles", "/api/admin/roles/**")
                                         .access(new WebExpressionAuthorizationManager(
                                                 "hasAuthority('MENU_ADMIN_ACCESS')"

@@ -46,6 +46,9 @@ public class Product {
     @Column(name = "reserved_quantity", nullable = false)
     private int reservedQuantity;
 
+    @Column(name = "for_sale", nullable = false)
+    private boolean forSale = true;
+
     public int getAvailableQuantity() { return stockQuantity - reservedQuantity; }
 
     public void reserveStock(int quantity) {
@@ -110,6 +113,11 @@ public class Product {
         this.badge = badge;
         this.visual = visual;
         this.stockQuantity = stockQuantity;
+        this.forSale = true;
+    }
+
+    public void setForSale(boolean forSale) {
+        this.forSale = forSale;
     }
 
     public static Product create(String name, String description, int price, ProductCategory category, String badge, String visual) {

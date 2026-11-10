@@ -34,6 +34,7 @@ export function useSaveProduct(onSaved: (message: string) => void, onFailed: (me
       if (response.imageUploadError) toast.error(message);
       else toast.success(message);
       await queryClient.invalidateQueries({ queryKey: ["products"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-products"] });
     },
     onError: (error, { id }) => {
       const detail = error instanceof Error ? error.message : "상품을 저장하지 못했습니다.";
@@ -44,6 +45,7 @@ export function useSaveProduct(onSaved: (message: string) => void, onFailed: (me
       toast.error(message);
       // 응답 유실로 등록 여부가 불확실할 수 있으므로 목록을 다시 조회한다.
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-products"] });
     },
   });
 

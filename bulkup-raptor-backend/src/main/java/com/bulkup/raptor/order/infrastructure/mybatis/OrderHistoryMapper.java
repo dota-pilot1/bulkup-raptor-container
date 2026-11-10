@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface OrderHistoryMapper {
-    record OrderRow(Long id, String status, long totalAmount, Instant createdAt, boolean cancellationPending) {}
+    record OrderRow(Long id, String status, long totalAmount, Instant createdAt, boolean cancellationPending, Instant reservationExpiresAt, String cancellationReason) {}
     record ItemRow(Long orderId, String productName, int quantity) {}
 
     long count(@Param("memberId") Long memberId, @Param("status") String status);

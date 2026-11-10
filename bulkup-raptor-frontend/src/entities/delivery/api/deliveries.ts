@@ -26,6 +26,32 @@ export async function getOrderDelivery(orderId: number, signal?: AbortSignal) {
   if (result.delivery.orderId !== orderId) throw new Error("조회한 주문 번호가 일치하지 않습니다.");
   return result;
 }
+const startResultSchema = z.object({
+  results: z.array(z.object({
+    orderId: z.number().int().positive(),
+    succeeded: z.boolean(),
+    deliveryStatus: z.string().nullable().optional(),
+    code: z.string().nullable().optional(),
+    message: z.string().nullable().optional(),
+  })).max(50),
+});
+export type StartDeliveriesResult = z.infer<typeof startResultSchema>;
+
+export async function startDeliveries(orderIds: number[], status: "OUT_FOR_DELIVERY" | "DELIVERED" = "OUT_FOR_DELIVERY"): Promise<StartDeliveriesResult> {
+  const ids = [...new Set(orderIds)];
+  const label = status === "DELIVERED" ? "전달 완료" : "배송 시작";
+  if (ids.length < 1 || ids.length > 50 || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) {
+    throw new Error(`${label}할 주문을 다시 선택해 주세요.`);
+  }
+  const result = startResultSchema.safeParse(await apiFetch<unknown>("/api/admin/deliveries/starts", {
+    method: "POST", body: JSON.stringify({ orderIds: ids, status }),
+  }));
+  if (!result.success || result.data.results.length !== ids.length
+      || result.data.results.some((item, index) => item.orderId !== ids[index])) {
+    throw new Error(`${label} 결과를 다시 조회해 주세요.`);
+  }
+  return result.data;
+}
 export async function changeDeliveryStatus(deliveryId: number, status: DeliveryStatus, expectedVersion: number, reason: string) {
   validId(deliveryId);
   if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0 || reason.length > 500) throw new Error("배송 변경 정보를 확인해 주세요.");

@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MemberSession } from "@/entities/session";
-import { hasPermission } from "@/entities/session";
+import { canHandleDelivery } from "@/entities/session";
 import { ApiError } from "@/shared/api/client";
 import { changeDeliveryStatus } from "@/entities/delivery/api/deliveries";
 import { deliveryKeys, type DeliveryStatus } from "@/entities/delivery/model/delivery-types";
@@ -16,7 +16,7 @@ export function useChangeDeliveryStatus(memberId: number, deliveryId: number) {
   const pending = useIsMutating({ mutationKey, exact: true });
   const current = () => {
     const member = client.getQueryData<MemberSession | null>(["me"]);
-    return member?.id === memberId && hasPermission(member, "SHIPPING_MANAGE");
+    return member?.id === memberId && canHandleDelivery(member);
   };
   const mutation = useMutation({
     mutationKey, retry: false,

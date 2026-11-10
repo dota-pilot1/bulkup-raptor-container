@@ -490,17 +490,20 @@ class PaymentVerificationApiIntegrationTest {
         var result = whileMemberLocked(() -> cancellations.reconcileExpired(orderId));
         assertThat(result.inventoryStatus()).isEqualTo("RELEASED");
         assertThat(result.orderStatus()).isEqualTo("CANCELLED");
+        assertThat(orders.findById(orderId).orElseThrow().getCancellationReason()).isEqualTo("결제 시간이 지나 주문을 취소했다");
         assertInventory(100, 0, 0);
     }
 
-    @Test void failedExpiryLookupKeepsHoldWithoutWaitingForMemberLock() throws Exception {
+    @Test void failedExpiryLookupCancelsUnpaidOrder() throws Exception {
         prepared();
         expireReservation();
         fakeStatus = 500;
         var result = whileMemberLocked(() -> cancellations.reconcileExpired(orderId));
-        assertThat(result.inventoryStatus()).isEqualTo("REVIEW_REQUIRED");
-        assertThat(result.pending()).isTrue();
-        assertInventory(100, 2, 0);
+        assertThat(result.inventoryStatus()).isEqualTo("RELEASED");
+        assertThat(result.orderStatus()).isEqualTo("CANCELLED");
+        assertThat(result.pending()).isFalse();
+        assertThat(orders.findById(orderId).orElseThrow().getCancellationReason()).isEqualTo("결제 시간이 지나 주문을 취소했다");
+        assertInventory(100, 0, 0);
     }
 
     @Test void cancelledProviderReleasesOnceAndPreventsReusingPayment() throws Exception {
@@ -639,7 +642,7 @@ class PaymentVerificationApiIntegrationTest {
         assertInventory(100, 2, 0);
     }
 
-    @Test void expirationKeepsUncertainHoldAndDoesNotExtendDeadline() throws Exception {
+    @Test void expirationCancelsUnpaidReadyPaymentAndStoresReason() throws Exception {
         prepared();
         Instant expired = Instant.now().minusSeconds(30);
         transactions.executeWithoutResult(tx -> entityManager.createNativeQuery(
@@ -649,14 +652,16 @@ class PaymentVerificationApiIntegrationTest {
         overrides.put("status", "READY");
         cancellations.reconcileExpired(orderId);
         var row = reservations.findByOrderIdOrderByProductIdAsc(orderId).getFirst();
-        assertThat(row.getStatus().name()).isEqualTo("REVIEW_REQUIRED");
-        assertThat(row.getExpiresAt()).isBefore(Instant.now());
-        assertThat(row.getNextCheckAt()).isAfter(Instant.now());
-        assertInventory(100, 2, 0);
+        assertThat(row.getStatus().name()).isEqualTo("RELEASED");
+        assertThat(row.getExpiresAt()).isEqualTo(expired);
+        assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo("CANCELLED");
+        assertThat(orders.findById(orderId).orElseThrow().getCancellationReason()).isEqualTo("결제 시간이 지나 주문을 취소했다");
+        assertInventory(100, 0, 0);
         assertThat(prepare(client, orderId).statusCode()).isEqualTo(409);
         overrides.clear();
         cancellations.reconcileExpired(orderId);
-        assertInventory(98, 0, 1);
+        assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo("CANCELLED");
+        assertInventory(100, 0, 0);
     }
 
     @Test void cancellationAfterConcurrentPaidVerificationUsesPreparingPolicy() throws Exception {

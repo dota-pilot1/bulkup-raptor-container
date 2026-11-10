@@ -22,6 +22,7 @@ export type OrderResponse = {
   inventoryStatus?: string;
   deliveryStatus?: "PREPARING" | "OUT_FOR_DELIVERY" | "DELIVERED" | null;
   cancellationReason?: string | null;
+  reservationExpiresAt?: string | null;
   items: { productId: number | null; productName: string; unitPrice: number; quantity: number; lineTotal: number }[];
   itemsTotal: number;
   shippingFee: number;
@@ -30,7 +31,7 @@ export type OrderResponse = {
   createdAt: string;
 };
 
-export type OrderSummary = Pick<OrderResponse, "orderId" | "status" | "totalAmount" | "createdAt" | "cancellationPending" | "deliveryStatus"> & {
+export type OrderSummary = Pick<OrderResponse, "orderId" | "status" | "totalAmount" | "createdAt" | "cancellationPending" | "deliveryStatus" | "reservationExpiresAt" | "cancellationReason"> & {
   items: { productName: string; quantity: number }[];
 };
 export type OrderPage = { content: OrderSummary[]; page: number; totalPages: number; totalElements: number };

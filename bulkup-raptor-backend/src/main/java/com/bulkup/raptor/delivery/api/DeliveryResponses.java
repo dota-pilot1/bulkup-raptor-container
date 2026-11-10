@@ -23,10 +23,14 @@ public final class DeliveryResponses {
         }
     }
     public record Summary(Long deliveryId, Long orderId, DeliveryStatus status, long version,
-            String recipientName, Instant createdAt, Instant startedAt, Instant deliveredAt, List<Item> items) {
+            String recipientName, String phone, String postalCode, String address, String addressDetail,
+            Instant createdAt, Instant startedAt, Instant deliveredAt, List<Item> items,
+            boolean cancellationPending) {
         public static Summary from(Delivery d) {
             return new Summary(d.getId(), d.getOrder().getId(), d.getStatus(), d.getVersion(),
-                    d.getRecipientName(), d.getCreatedAt(), d.getStartedAt(), d.getDeliveredAt(), DeliveryResponses.items(d.getOrder()));
+                    d.getRecipientName(), d.getPhone(), d.getPostalCode(), d.getAddress(), d.getAddressDetail(),
+                    d.getCreatedAt(), d.getStartedAt(), d.getDeliveredAt(), DeliveryResponses.items(d.getOrder()),
+                    d.getOrder().isPaidCancellationPending());
         }
     }
     public record AdminHistory(Long id, DeliveryStatus fromStatus, DeliveryStatus toStatus,

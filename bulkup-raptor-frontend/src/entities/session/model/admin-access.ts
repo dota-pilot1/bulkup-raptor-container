@@ -27,16 +27,32 @@ export type AdminTab = (typeof adminMenus)[number]["id"];
 
 // 헤더와 관리자 화면에서 공통으로 사용하는 접근 검사이다. 회원의 권한을 설정하거나 변경하지 않는다.
 export function canAccessAdmin(member: MemberSession | null | undefined) {
+  if (deliveryDriverOnly(member)) return false;
   return hasPermission(member, ADMIN_MENU_PERMISSION);
 }
 
-// 접근 권한이 있으면 내부 메뉴 전체를 반환하고, 없으면 빈 목록을 반환한다.
+function deliveryDriverOnly(member: MemberSession | null | undefined) {
+  const roles = member?.roles ?? [];
+  return roles.length > 0 && roles.every((role) => role.code === "DELIVERY_DRIVER");
+}
+
+// 관리자 진입 권한이 있으면 내부 메뉴 전체를 반환한다.
+// 배송 기사 역할만 있는 회원은 배송 관리만 반환한다.
 export function accessibleAdminMenus(member: MemberSession | null | undefined) {
+  if (deliveryDriverOnly(member)) return adminMenus.filter((menu) => menu.id === "deliveries");
   return canAccessAdmin(member) ? [...adminMenus] : [];
+}
+
+export function canAccessDeliveryAdmin(member: MemberSession | null | undefined) {
+  return canAccessAdmin(member) || deliveryDriverOnly(member) || hasPermission(member, "DELIVERY_HANDLE");
 }
 
 export function hasPermission(member: MemberSession | null | undefined, code: string) {
   return Boolean(member?.permissions.includes(code));
+}
+
+export function canHandleDelivery(member: MemberSession | null | undefined) {
+  return hasPermission(member, "SHIPPING_MANAGE") || hasPermission(member, "DELIVERY_HANDLE");
 }
 
 // Keep the backend's ADMIN-only command policy separate from menu visibility.

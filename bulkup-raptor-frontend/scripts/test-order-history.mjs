@@ -31,12 +31,17 @@ test('order history API forwards pagination and abort signal; list keys isolate 
 });
 const linkUrl = dataUrl(`import React from ${JSON.stringify(import.meta.resolve('react'))};export default function Link({children,...props}){return React.createElement('a',props,children)}`);
 const common = { '@/features/view-delivery/ui/order-delivery-button': dataUrl('export function OrderDeliveryButton(){return null}'), react: import.meta.resolve('react'), 'react/jsx-runtime': import.meta.resolve('react/jsx-runtime'), 'next/link': linkUrl, '@tanstack/react-query': import.meta.resolve('@tanstack/react-query') };
-const historyUrl = moduleUrl('../src/entities/order/ui/order-history.tsx', common);
+const deadlineUrl = moduleUrl('../src/entities/order/ui/payment-deadline.tsx', common);
+const historyUrl = moduleUrl('../src/entities/order/ui/order-history.tsx', { ...common, './payment-deadline': deadlineUrl });
 const {OrderHistory} = await import(historyUrl);
 const order = {orderId:51,status:'CREATED',items:[{productName:'주문 당시 상품',quantity:2},{productName:'다른 상품',quantity:1}],totalAmount:117800,createdAt:'2026-10-29T16:30:00Z'};
 test('history shows snapshot title, quantity, amount, unpaid status and Korean date with detail link', () => {
   const html = renderToString(React.createElement(OrderHistory,{orders:[order]})).replaceAll('<!-- -->', '');
   for (const text of ['주문 당시 상품','외 1종','총 3개','117,800','결제 전','2026년 10월 30일','href="/orders/51"']) assert.ok(html.includes(text),text);
+  assert.ok(!html.includes('결제 마감'));
+  const reserved = renderToString(React.createElement(OrderHistory,{orders:[{...order,reservationExpiresAt:'2026-11-10T12:28:00Z'}]})).replaceAll('<!-- -->', '');
+  assert.ok(reserved.includes('결제 마감'));
+  assert.ok(reserved.includes('오후') || reserved.includes('PM') || reserved.includes('9:28') || reserved.includes('21:28'));
   assert.ok(!html.includes('결제 완료'));
 });
 test('empty history offers shopping navigation', () => {

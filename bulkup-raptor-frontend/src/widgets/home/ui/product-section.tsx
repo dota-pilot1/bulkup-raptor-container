@@ -48,10 +48,12 @@ export function ProductSection() {
       return true;
     })
     .sort((a, b) => {
-      if (sortOption === "PRICE_ASC") return a.price - b.price;
-      if (sortOption === "PRICE_DESC") return b.price - a.price;
-      if (sortOption === "NAME") return a.name.localeCompare(b.name, "ko");
-      return 0; // RECOMMENDED
+      const availability = Number(a.availableQuantity <= 0) - Number(b.availableQuantity <= 0);
+      if (availability !== 0) return availability;
+      if (sortOption === "PRICE_ASC") return a.price - b.price || a.id - b.id;
+      if (sortOption === "PRICE_DESC") return b.price - a.price || a.id - b.id;
+      if (sortOption === "NAME") return a.name.localeCompare(b.name, "ko") || a.id - b.id;
+      return a.id - b.id;
     });
 
   const isFiltered = Boolean(submittedKeyword) || sortOption !== "RECOMMENDED";

@@ -10,6 +10,6 @@ export function useOrder(memberId: number | null, orderId: number) {
     queryFn: ({ signal }) => getOrder(orderId, signal),
     enabled: memberId !== null && Number.isSafeInteger(orderId) && orderId > 0,
     retry: false,
-    refetchInterval: query => query.state.data?.cancellationPending ? 10_000 : false,
+    refetchInterval: query => query.state.data?.cancellationPending || (query.state.data?.status === "CREATED" && query.state.data.reservationExpiresAt) ? 15_000 : false,
   });
 }

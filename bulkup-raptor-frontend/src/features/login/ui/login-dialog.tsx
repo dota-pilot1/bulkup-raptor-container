@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { useLogin } from "../model/use-login";
 import { loginSchema, type LoginForm } from "../model/login-schema";
+import type { DevAccount } from "../model/dev-accounts";
+import { DevAccountButtons } from "./dev-account-buttons";
 import { Dialog } from "@/shared/ui/dialog";
 
 type LoginDialogProps = {
@@ -14,6 +17,7 @@ type LoginDialogProps = {
 };
 
 export function LoginDialog({ isOpen, onClose }: LoginDialogProps) {
+  const router = useRouter();
   const loginMutation = useLogin();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -32,6 +36,16 @@ export function LoginDialog({ isOpen, onClose }: LoginDialogProps) {
   const handleClose = () => {
     reset();
     onClose();
+  };
+
+  const enterDevAccount = async (account: DevAccount) => {
+    try {
+      await loginMutation.mutateAsync({ email: account.email, password: account.password });
+      handleClose();
+      router.push(account.href);
+    } catch (error) {
+      setError("root", { message: error instanceof Error ? error.message : "로그인에 실패했습니다." });
+    }
   };
 
   const onSubmit = async (values: LoginForm) => {
@@ -124,6 +138,7 @@ export function LoginDialog({ isOpen, onClose }: LoginDialogProps) {
             "로그인"
           )}
         </button>
+        <DevAccountButtons disabled={isSubmitting} onEnter={enterDevAccount} />
 
         <p className="pt-2 text-center text-xs text-zinc-500">
           아직 회원이 아니신가요?{" "}

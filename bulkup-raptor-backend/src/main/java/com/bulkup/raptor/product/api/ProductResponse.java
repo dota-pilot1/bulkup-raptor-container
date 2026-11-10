@@ -17,6 +17,7 @@ public record ProductResponse(
     int stockQuantity,
     int reservedQuantity,
     int availableQuantity,
+    boolean forSale,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -34,6 +35,7 @@ public record ProductResponse(
             product.getStockQuantity(),
             product.getReservedQuantity(),
             product.getAvailableQuantity(),
+            product.isForSale(),
             product.getCreatedAt(),
             product.getUpdatedAt()
         );

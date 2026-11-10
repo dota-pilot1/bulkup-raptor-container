@@ -238,11 +238,52 @@ class DeliveryApiIntegrationTest {
     }
 
     @Test
+    void preparingListKeepsTheSameAddressTogetherWithNewerOrdersFirst() {
+        long newerId = paidOrder(recipient, "12345", "주문  주소", " 101호 ");
+        long otherId = paidOrder(recipient, "12345", "다른 주소", "202호");
+        tx.executeWithoutResult(status -> {
+            em.createNativeQuery("update deliveries set created_at = timestamp '2026-11-01 00:00:00' where order_id = :id")
+                    .setParameter("id", paidOrderId).executeUpdate();
+            em.createNativeQuery("update deliveries set created_at = timestamp '2026-11-03 00:00:00' where order_id = :id")
+                    .setParameter("id", newerId).executeUpdate();
+            em.createNativeQuery("update deliveries set created_at = timestamp '2026-11-09 00:00:00' where order_id = :id")
+                    .setParameter("id", otherId).executeUpdate();
+        });
+        var preparing = service.list(0, 10, recipient, DeliveryStatus.PREPARING).content().stream()
+                .map(item -> item.orderId()).toList();
+        assertThat(preparing).containsExactly(otherId, newerId, paidOrderId);
+        tx.executeWithoutResult(status -> service.changeStatus(ownerId, deliveryId,
+                new ChangeDeliveryStatusRequest(DeliveryStatus.OUT_FOR_DELIVERY, 0L, null)));
+        var moving = service.list(0, 10, recipient, DeliveryStatus.OUT_FOR_DELIVERY).content();
+        assertThat(moving).hasSize(1);
+        assertThat(moving.getFirst().orderId()).isEqualTo(paidOrderId);
+    }
+
+    long paidOrder(String name, String postalCode, String address, String detail) {
+        return tx.execute(status -> {
+            var owner = members.findById(ownerId).orElseThrow();
+            var product = products.findById(productId).orElseThrow();
+            var order = Order.create(owner, UUID.randomUUID(), "test", name, "01012345678", postalCode, address, detail);
+            order.addItem(product, 1);
+            order.calculateShipping();
+            order.markPaid();
+            orders.saveAndFlush(order);
+            creation.ensureForPaidOrder(order.getId());
+            return order.getId();
+        });
+    }
+
+    @Test
     void listUsesSnapshotFiltersStablePagingAndValidatesParameters() throws Exception {
         mvc.perform(get("/api/admin/deliveries").param("search", recipient).param("status", "PREPARING")
                 .with(auth(ownerId, "MENU_ADMIN_ACCESS")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].cancellationPending").value(false))
                 .andExpect(jsonPath("$.content[0].orderId").value(paidOrderId))
+                .andExpect(jsonPath("$.content[0].phone").value("01012345678"))
+                .andExpect(jsonPath("$.content[0].postalCode").value("12345"))
+                .andExpect(jsonPath("$.content[0].address").value("주문 주소"))
+                .andExpect(jsonPath("$.content[0].addressDetail").value("101호"))
                 .andExpect(jsonPath("$.content[0].items[0].quantity").value(2));
         assertThat(service.list(999, 10, recipient, null).page()).isZero();
         assertThat(service.list(0, 10, Long.toString(paidOrderId), null).totalElements()).isEqualTo(1);
@@ -256,6 +297,99 @@ class DeliveryApiIntegrationTest {
         mvc.perform(get("/api/admin/deliveries/0").with(auth(ownerId, "MENU_ADMIN_ACCESS"))).andExpect(status().isBadRequest());
         mvc.perform(get("/api/admin/deliveries/" + Long.MAX_VALUE).with(auth(ownerId, "MENU_ADMIN_ACCESS")))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void startsPreparingOrdersTogetherAndKeepsEachFailureSeparate() throws Exception {
+        mvc.perform(post("/api/admin/deliveries/starts").with(auth(ownerId, "MENU_ADMIN_ACCESS"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"orderIds\":[" + paidOrderId + "]}"))
+                .andExpect(status().isForbidden());
+        tx.executeWithoutResult(status -> em.createNativeQuery(
+                "update orders set paid_cancellation_pending=true where id=:id").setParameter("id", paidOrderId).executeUpdate());
+        mvc.perform(post("/api/admin/deliveries/starts").with(auth(ownerId, "SHIPPING_MANAGE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"orderIds\":[" + paidOrderId + "," + unpaidOrderId + ",999999999]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].succeeded").value(false))
+                .andExpect(jsonPath("$.results[0].code").value("DELIVERY_CANCELLATION_PENDING"))
+                .andExpect(jsonPath("$.results[1].code").value("DELIVERY_ORDER_NOT_PAID"))
+                .andExpect(jsonPath("$.results[2].code").value("ORDER_NOT_FOUND"));
+        assertThat(service.get(deliveryId).delivery().status()).isEqualTo(DeliveryStatus.PREPARING);
+        tx.executeWithoutResult(status -> em.createNativeQuery(
+                "update orders set paid_cancellation_pending=false where id=:id").setParameter("id", paidOrderId).executeUpdate());
+        mvc.perform(post("/api/admin/deliveries/starts").with(auth(ownerId, "SHIPPING_MANAGE"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"orderIds\":[" + paidOrderId + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].succeeded").value(true))
+                .andExpect(jsonPath("$.results[0].deliveryStatus").value("OUT_FOR_DELIVERY"));
+        mvc.perform(post("/api/admin/deliveries/starts").with(auth(ownerId, "SHIPPING_MANAGE"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"orderIds\":[" + paidOrderId + "]}"))
+                .andExpect(jsonPath("$.results[0].succeeded").value(true));
+        int recorded = tx.execute(status -> history.findByDeliveryIdOrderByCreatedAtAscIdAsc(deliveryId).size());
+        assertThat(recorded).isEqualTo(1);
+        mvc.perform(post("/api/admin/deliveries/starts").with(auth(ownerId, "SHIPPING_MANAGE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"orderIds\":[" + paidOrderId + "],\"status\":\"DELIVERED\"}"))
+                .andExpect(jsonPath("$.results[0].succeeded").value(true))
+                .andExpect(jsonPath("$.results[0].deliveryStatus").value("DELIVERED"));
+        mvc.perform(post("/api/admin/deliveries/starts").with(auth(ownerId, "SHIPPING_MANAGE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"orderIds\":[" + paidOrderId + "],\"status\":\"DELIVERED\"}"))
+                .andExpect(jsonPath("$.results[0].succeeded").value(true));
+        int afterDelivery = tx.execute(status -> history.findByDeliveryIdOrderByCreatedAtAscIdAsc(deliveryId).size());
+        assertThat(afterDelivery).isEqualTo(2);
+        mvc.perform(post("/api/admin/deliveries/starts").with(auth(ownerId, "SHIPPING_MANAGE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"orderIds\":[" + paidOrderId + "],\"status\":\"OUT_FOR_DELIVERY\"}"))
+                .andExpect(jsonPath("$.results[0].code").value("DELIVERY_STATUS_CONFLICT"));
+    }
+
+    @Test
+    void driverChangesStatusWithoutShippingAdministration() throws Exception {
+        tx.executeWithoutResult(status -> {
+            Number links = (Number) em.createNativeQuery("""
+                    select count(*) from role_permissions rp
+                    join roles r on r.id = rp.role_id
+                    join permissions p on p.id = rp.permission_id
+                    where r.code = 'DELIVERY_DRIVER' and p.code = 'DELIVERY_HANDLE'
+                    """).getSingleResult();
+            assertThat(links.intValue()).isEqualTo(1);
+            Number menu = (Number) em.createNativeQuery("""
+                    select count(*) from role_permissions rp
+                    join roles r on r.id = rp.role_id
+                    join permissions p on p.id = rp.permission_id
+                    where r.code = 'DELIVERY_DRIVER' and p.code = 'MENU_ADMIN_ACCESS'
+                    """).getSingleResult();
+            assertThat(menu.intValue()).isZero();
+            Number blocked = (Number) em.createNativeQuery("""
+                    select count(*) from role_permissions rp
+                    join roles r on r.id = rp.role_id
+                    join permissions p on p.id = rp.permission_id
+                    where r.code = 'DELIVERY_DRIVER'
+                      and p.code in ('ORDER_MANAGE', 'PRODUCT_MANAGE', 'MEMBER_MANAGE', 'ROLE_MANAGE', 'SHIPPING_MANAGE')
+                    """).getSingleResult();
+            assertThat(blocked.intValue()).isZero();
+        });
+        var driver = auth(ownerId, "DELIVERY_HANDLE");
+        mvc.perform(get("/api/admin/deliveries/" + deliveryId).with(driver)).andExpect(status().isOk());
+        mvc.perform(get("/api/admin/orders").with(driver)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/products").with(driver)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/payments").with(driver)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/members").with(driver)).andExpect(status().isForbidden());
+        mvc.perform(patch(statusPath()).with(driver).contentType(MediaType.APPLICATION_JSON)
+                .content(change("OUT_FOR_DELIVERY", 0))).andExpect(status().isOk());
+        mvc.perform(post("/api/admin/deliveries/starts").with(driver).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"orderIds\":[" + paidOrderId + "],\"status\":\"DELIVERED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].succeeded").value(true));
+        mvc.perform(post("/api/admin/orders/" + paidOrderId + "/cancel").with(driver)
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/orders/cancellations").with(driver)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"orderIds\":[" + paidOrderId + "]}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/shipments").with(driver)).andExpect(status().isForbidden());
+        mvc.perform(patch(statusPath()).with(auth(ownerId, "DELIVERY_HANDLE")).contentType(MediaType.APPLICATION_JSON)
+                .content(change("DELIVERED", 1))).andExpect(status().isOk());
     }
 
     @Test

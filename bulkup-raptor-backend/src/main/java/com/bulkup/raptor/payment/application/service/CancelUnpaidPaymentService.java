@@ -91,13 +91,12 @@ public class CancelUnpaidPaymentService {
                 // External lookup happens after RELEASE_PENDING commits, without holding DB locks.
                 verification.reconcilePayment(target.paymentId());
             } catch (RuntimeException error) {
-                transactions.executeWithoutResult(tx -> {
-                    var order = orders.findByIdAndMemberIdForUpdate(orderId, target.memberId()).orElseThrow();
-                    if (payments.findByOrderId(orderId)
-                            .filter(payment -> payment.getPaymentId().equals(target.paymentId())).isPresent())
-                        stock.review(order);
-                });
+                transactions.executeWithoutResult(tx -> finishExpiredOrReview(orderId, target, interactive));
             }
+            if (!interactive) transactions.executeWithoutResult(tx -> {
+                var order = orders.findByIdAndMemberIdForUpdate(orderId, target.memberId()).orElseThrow();
+                stock.expireUnpaid(order);
+            });
         }
         return transactions.execute(tx -> {
             var order = orders.findByIdAndMemberIdForUpdate(orderId, target.memberId()).orElseThrow();
@@ -105,5 +104,13 @@ public class CancelUnpaidPaymentService {
             return new Result(orderId, order.getStatus(), status,
                     java.util.Set.of("RESERVED", "RELEASE_PENDING", "REVIEW_REQUIRED").contains(status));
         });
+    }
+
+    private void finishExpiredOrReview(Long orderId, Target target, boolean interactive) {
+        var order = orders.findByIdAndMemberIdForUpdate(orderId, target.memberId()).orElseThrow();
+        if (payments.findByOrderId(orderId)
+                .filter(payment -> payment.getPaymentId().equals(target.paymentId())).isEmpty()) return;
+        if (!interactive && stock.expireUnpaid(order)) return;
+        stock.review(order);
     }
 }

@@ -107,6 +107,17 @@ public class StockReservationService {
         if (cancelOrder && "CREATED".equals(order.getStatus())) order.cancelUnpaid();
     }
 
+    // 결제 재시도 표시가 있어도 예약 시간이 지났으면 미결제 주문을 취소한다.
+    public boolean expireUnpaid(Order order) {
+        if (!"CREATED".equals(order.getStatus())) return false;
+        var state = snapshot(order);
+        if (state.expiresAt() == null || state.expiresAt().isAfter(Instant.now())) return false;
+        if (!Set.of("RESERVED", "RELEASE_PENDING", "REVIEW_REQUIRED").contains(state.status())) return false;
+        order.rememberCancellationReason("결제 시간이 지나 주문을 취소했다");
+        release(order, true);
+        return true;
+    }
+
     public void refund(Order order) {
         // Legacy orders have no automatic inventory settlement to reverse.
         if (!order.isInventoryManaged()) return;

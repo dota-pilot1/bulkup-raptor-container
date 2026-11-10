@@ -35,6 +35,7 @@ export type Product = {
   stockQuantity: number;
   reservedQuantity: number;
   availableQuantity: number;
+  forSale?: boolean;
 };
 
 export type ProductInput = {

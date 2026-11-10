@@ -10,7 +10,18 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
-    List<Product> findAllByOrderByIdAsc();
+    @Query("""
+            select p from Product p
+            where p.forSale = true
+            order by case when p.stockQuantity > p.reservedQuantity then 0 else 1 end, p.id asc
+            """)
+    List<Product> findAllForCatalog();
+
+    @Query("""
+            select p from Product p
+            order by case when p.stockQuantity > p.reservedQuantity then 0 else 1 end, p.id asc
+            """)
+    List<Product> findAllForAdmin();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Product p where p.id = :id")

@@ -11,12 +11,13 @@ const time = z.string().datetime({ offset: true });
 const item = z.object({ productName: z.string(), quantity: z.number().int().positive() });
 const summary = z.object({
   deliveryId: id, orderId: id, status: z.enum(deliveryStatuses), version,
-  recipientName: z.string(), createdAt: time, startedAt: time.nullable(), deliveredAt: time.nullable(),
+  recipientName: z.string(), phone: z.string(), postalCode: z.string(), address: z.string(), addressDetail: z.string(),
+  createdAt: time, startedAt: time.nullable(), deliveredAt: time.nullable(),
   items: z.array(item),
+  cancellationPending: z.boolean().optional(),
 });
 export const deliveryInfoSchema = summary.extend({
   handlerName: z.string().nullable().optional(),
-  phone: z.string(), postalCode: z.string(), address: z.string(), addressDetail: z.string(),
   centerName: z.string().nullable(), pickupLocation: z.string().nullable(), scheduledAt: time.nullable(),
 });
 const publicHistory = z.object({ fromStatus: z.enum(deliveryStatuses), toStatus: z.enum(deliveryStatuses), createdAt: time });

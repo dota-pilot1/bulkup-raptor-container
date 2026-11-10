@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { canAccessAdmin } from "@/entities/session";
+import { canAccessAdmin, canAccessDeliveryAdmin } from "@/entities/session";
 import { currentMember } from "@/lib/api";
 
 export function AdminAccessGuard({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const session = useQuery({
     queryKey: ["me"],
     queryFn: currentMember,
@@ -29,7 +30,9 @@ export function AdminAccessGuard({ children }: { children: ReactNode }) {
     </main>;
   }
   if (!session.data) redirect("/login");
-  if (!canAccessAdmin(session.data)) {
+  const deliveryRoute = pathname === "/admin/deliveries" || pathname.startsWith("/admin/deliveries/");
+  const allowed = canAccessAdmin(session.data) || (deliveryRoute && canAccessDeliveryAdmin(session.data));
+  if (!allowed) {
     return <main className="mx-auto max-w-3xl px-6 py-16">
       <h1 className="text-2xl font-bold">관리 권한이 필요해요</h1>
       <p className="mt-2 text-sm text-zinc-500">관리자 페이지 접근 권한이 없습니다.</p>

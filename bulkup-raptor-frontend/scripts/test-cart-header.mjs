@@ -33,7 +33,7 @@ const imports = {
   '@tanstack/react-query': queryUrl,
   '@/entities/product/model/product': dataUrl('export const catalogNav=[]; export const categoryFromQuery=()=>"ALL"; export const categoryHref=()=>"/";'),
   '@/lib/api': dataUrl('export const currentMember=()=>null; export const logout=()=>null;'),
-  '@/entities/session': dataUrl('export const canAccessAdmin=()=>false; export const MemberAvatar=()=>null;'),
+  '@/entities/session': dataUrl('export const canAccessAdmin=()=>false; export const canAccessDeliveryAdmin=()=>false; export const MemberAvatar=()=>null;'),
   '@/entities/cart/model/use-cart': cartUrl,
   '@/shared/api/client': apiUrl,
   '@/features/login': emptyComponent,

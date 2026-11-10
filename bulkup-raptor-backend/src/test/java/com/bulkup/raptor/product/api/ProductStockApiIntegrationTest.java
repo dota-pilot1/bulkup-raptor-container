@@ -78,6 +78,19 @@ class ProductStockApiIntegrationTest {
     }
 
     @Test
+    void listsBuyableProductsBeforeSoldOutAndKeepsIdOrderWithinEachGroup() throws Exception {
+        long availableFirst = remember(send(operator, "POST", "/api/products", productJson("4")), false).get("id").asLong();
+        long reservedOut = remember(send(operator, "POST", "/api/products", productJson("5")), false).get("id").asLong();
+        long soldOut = remember(send(operator, "POST", "/api/products", productJson("0")), false).get("id").asLong();
+        long availableSecond = remember(send(operator, "POST", "/api/products", productJson("2")), false).get("id").asLong();
+        jdbc.update("update products set reserved_quantity = stock_quantity where id = ?", reservedOut);
+        var ids = new java.util.ArrayList<Long>();
+        for (var item : body(send(HttpClient.newHttpClient(), "GET", "/api/products", ""), 200)) ids.add(item.get("id").asLong());
+        var ours = ids.stream().filter(id -> id == availableFirst || id == availableSecond || id == reservedOut || id == soldOut).toList();
+        assertThat(ours).containsExactly(availableFirst, availableSecond, reservedOut, soldOut);
+    }
+
+    @Test
     void supportsZeroMaximumAndLegacyMissingOrNullStock() throws Exception {
         for (String value : new String[]{"0", "2147483647", null, "null"}) {
             var created = remember(send(operator, "POST", "/api/products", productJson(value)), false);
@@ -106,6 +119,38 @@ class ProductStockApiIntegrationTest {
         var updated = body(multipart("PUT", "/api/products/" + id, productJson("88")), 200);
         assertThat(updated.get("stockQuantity").asInt()).isEqualTo(9);
         assertThat(products.findById(id).orElseThrow().getStockQuantity()).isEqualTo(9);
+    }
+
+    @Test
+    void pausingSaleHidesTheProductWithoutChangingStock() throws Exception {
+        var created = remember(send(operator, "POST", "/api/products", productJson("0")), false);
+        long id = created.get("id").asLong();
+        assertThat(created.get("forSale").asBoolean()).isTrue();
+        var paused = body(send(operator, "PATCH", "/api/admin/products/" + id + "/sale", "{\"forSale\":false}"), 200);
+        assertThat(paused.get("forSale").asBoolean()).isFalse();
+        assertThat(paused.get("stockQuantity").asInt()).isZero();
+        assertThat(paused.get("availableQuantity").asInt()).isZero();
+        boolean listed = false;
+        for (var item : body(send(HttpClient.newHttpClient(), "GET", "/api/products", ""), 200)) {
+            if (item.get("id").asLong() == id) listed = true;
+        }
+        assertThat(listed).isFalse();
+        boolean inAdmin = false;
+        for (var item : body(send(operator, "GET", "/api/admin/products", ""), 200)) {
+            if (item.get("id").asLong() == id) {
+                assertThat(item.get("forSale").asBoolean()).isFalse();
+                assertThat(item.get("stockQuantity").asInt()).isZero();
+                inAdmin = true;
+            }
+        }
+        assertThat(inAdmin).isTrue();
+        var buyer = login(member("MEMBER"));
+        var denied = send(buyer, "POST", "/api/cart/items", "{\"productId\":" + id + ",\"quantity\":1}");
+        assertThat(denied.statusCode()).isEqualTo(409);
+        assertThat(json.readTree(denied.body()).get("code").asText()).isEqualTo("PRODUCT_NOT_FOR_SALE");
+        var resumed = body(send(operator, "PATCH", "/api/admin/products/" + id + "/sale", "{\"forSale\":true}"), 200);
+        assertThat(resumed.get("forSale").asBoolean()).isTrue();
+        assertThat(products.findById(id).orElseThrow().getStockQuantity()).isZero();
     }
 
     @Test

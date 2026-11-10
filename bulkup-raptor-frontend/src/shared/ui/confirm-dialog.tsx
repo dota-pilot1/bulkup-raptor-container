@@ -11,6 +11,7 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   isPending?: boolean;
+  maxWidthClassName?: string;
   onConfirm: () => void;
   onClose: () => void;
 };
@@ -18,6 +19,7 @@ type ConfirmDialogProps = {
 export function ConfirmDialog({
   isOpen, title, description, children,
   confirmLabel = "확인", cancelLabel = "취소", isPending = false,
+  maxWidthClassName = "max-w-xl",
   onConfirm, onClose,
 }: ConfirmDialogProps) {
   return (
@@ -27,6 +29,7 @@ export function ConfirmDialog({
       description={description}
       onClose={onClose}
       closeDisabled={isPending}
+      maxWidthClassName={maxWidthClassName}
       footer={<>
         <button type="button" onClick={onClose} disabled={isPending}
           className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 disabled:opacity-50">

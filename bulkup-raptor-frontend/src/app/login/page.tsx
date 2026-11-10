@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useLogin, loginSchema, type LoginForm } from "@/features/login";
+import { DevAccountButtons } from "@/features/login/ui/dev-account-buttons";
+import type { DevAccount } from "@/features/login/model/dev-accounts";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,6 +18,15 @@ export default function LoginPage() {
     mode: "onBlur",
     defaultValues: { email: "", password: "" },
   });
+
+  const enterDevAccount = async (account: DevAccount) => {
+    try {
+      await loginMutation.mutateAsync({ email: account.email, password: account.password });
+      router.push(account.href);
+    } catch (error) {
+      setError("root", { message: error instanceof Error ? error.message : "로그인에 실패했습니다." });
+    }
+  };
 
   const onSubmit = async (values: LoginForm) => {
     try {
@@ -63,6 +74,7 @@ export default function LoginPage() {
             </div>
             {errors.root && <div className="signup-alert" role="alert"><span aria-hidden="true">!</span><p>{errors.root.message}</p></div>}
             <button type="submit" className="signup-submit" disabled={isSubmitting}>{isSubmitting ? "로그인 중입니다..." : "로그인"}</button>
+            <DevAccountButtons disabled={isSubmitting} onEnter={enterDevAccount} />
             <p className="signup-login-prompt">아직 회원이 아니신가요? <Link href="/signup">회원가입</Link></p>
           </form>
         </section>

@@ -15,6 +15,7 @@ import com.bulkup.raptor.order.repository.OrderRepository;
 import com.bulkup.raptor.product.repository.ProductRepository;
 import java.io.*;
 import java.security.*;
+import java.time.Instant;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -61,7 +62,9 @@ public class OrderService {
         for (var item : selected)
             quantities.merge(item.getProduct().getId(), item.getQuantity(), Math::addExact);
         for (var entry : quantities.entrySet()) {
-            if (entry.getValue() > byId.get(entry.getKey()).getAvailableQuantity())
+            var product = byId.get(entry.getKey());
+            if (!product.isForSale()) throw new BusinessException(ErrorCode.PRODUCT_NOT_FOR_SALE);
+            if (entry.getValue() > product.getAvailableQuantity())
                 throw new BusinessException(ErrorCode.ORDER_STOCK_INSUFFICIENT);
         }
         var order = Order.create(member, request.requestId(), fingerprint, request.recipientName().trim(),
@@ -100,7 +103,7 @@ public class OrderService {
             }
         }
         var content = rows.stream().map(row -> new OrderPageResponse.Summary(row.id(), row.status(),
-                items.getOrDefault(row.id(), List.of()), row.totalAmount(), row.createdAt(), row.cancellationPending())).toList();
+                items.getOrDefault(row.id(), List.of()), row.totalAmount(), row.createdAt(), row.cancellationPending(), row.reservationExpiresAt(), row.cancellationReason())).toList();
         long pages = total / size + (total % size == 0 ? 0 : 1);
         return new OrderPageResponse(content, page, (int) Math.min(pages, Integer.MAX_VALUE), total);
     }
@@ -110,12 +113,16 @@ public class OrderService {
     }
 
     private OrderResponse response(Order order) {
-        String inventoryStatus = stock.snapshot(order).status();
+        var snapshot = stock.snapshot(order);
+        String inventoryStatus = snapshot.status();
         boolean pending = order.isPaidCancellationPending() || ("CREATED".equals(order.getStatus())
                 && Set.of("RELEASE_PENDING", "REVIEW_REQUIRED").contains(inventoryStatus)
                 && payments.findByOrderId(order.getId()).map(p -> !p.isKeepOrderOnRelease()).orElse(false));
         String deliveryStatus = deliveries.findByOrderId(order.getId()).map(d -> d.getStatus().name()).orElse(null);
-        return OrderResponse.from(order, pending, inventoryStatus, deliveryStatus);
+        Instant reservationExpiresAt = "CREATED".equals(order.getStatus())
+                && Set.of("RESERVED", "RELEASE_PENDING", "REVIEW_REQUIRED").contains(inventoryStatus)
+                ? snapshot.expiresAt() : null;
+        return OrderResponse.from(order, pending, inventoryStatus, deliveryStatus, reservationExpiresAt);
     }
 
     private Member lockMember(Long memberId) {

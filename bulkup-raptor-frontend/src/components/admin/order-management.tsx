@@ -19,8 +19,25 @@ import { SearchFilterBar } from "@/components/ui/search-filter-bar";
 
 const emptyFilters: AdminOrderFilters = { search: "", status: "ALL" };
 
-function canSelectForCancellation(order: Pick<AdminOrderSummary, "status" | "deliveryStatus">, allowed: boolean) {
-  return allowed && order.status === "PAID" && order.deliveryStatus === "PREPARING";
+function seoulToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+function shiftDate(iso: string, days: number) {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+function withoutDates(filters: AdminOrderFilters, search: string, from?: string, to?: string): AdminOrderFilters {
+  const next: AdminOrderFilters = { ...filters, search };
+  delete next.from;
+  delete next.to;
+  if (from && to) return { ...next, from, to };
+  return next;
+}
+
+function canSelectForCancellation(order: Pick<AdminOrderSummary, "status" | "deliveryStatus" | "cancellationPending">, allowed: boolean) {
+  return allowed && order.status === "PAID" && order.deliveryStatus === "PREPARING" && !order.cancellationPending;
 }
 
 export function OrderManagement() {
@@ -37,7 +54,10 @@ export function OrderManagement() {
   const [bulkPending, setBulkPending] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkResult, setBulkResult] = useState<BulkCancellationResult | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const today = seoulToday();
+  const weekStart = shiftDate(today, -6);
   const cancellationTab = filters.status === "CANCELLED";
   const canManageOrders = hasPermission(session.data, "ORDER_MANAGE");
   const orders = useQuery({
@@ -47,8 +67,8 @@ export function OrderManagement() {
     enabled: allowed,
   });
   const counts = useQuery({
-    queryKey: ["admin-orders", session.data?.id, "counts", filters.search],
-    queryFn: ({ signal }) => getAdminOrderCounts(filters.search, signal),
+    queryKey: ["admin-orders", session.data?.id, "counts", filters.search, filters.from ?? "", filters.to ?? ""],
+    queryFn: ({ signal }) => getAdminOrderCounts(filters.search, signal, { from: filters.from, to: filters.to }),
     enabled: allowed, retry: false,
   });
   const refresh = () => { void orders.refetch(); void counts.refetch(); };
@@ -93,13 +113,43 @@ export function OrderManagement() {
       </div>
       <SearchFilterBar label="주문 번호 또는 주문자 검색" placeholder="주문 번호 전체 또는 주문자 이름·이메일"
         value={draft.search} onValueChange={(search) => setDraft({ ...draft, search })} busy={busy}
-        isDirty={draft.search.trim() !== filters.search}
+        isDirty={draft.search.trim() !== filters.search || (draft.from ?? "") !== (filters.from ?? "") || (draft.to ?? "") !== (filters.to ?? "")}
         onSearch={() => {
-          const next = { ...filters, search: draft.search.trim() };
-          if (page === 0 && next.search === filters.search) refresh();
+          const from = draft.from || undefined;
+          const to = draft.to || undefined;
+          if ((from && !to) || (!from && to) || (from && to && from > to)) {
+            setDateError("시작일과 종료일을 순서대로 선택해 주세요.");
+            return;
+          }
+          setDateError(null);
+          const next = withoutDates(filters, draft.search.trim(), from, to);
+          if (page === 0 && next.search === filters.search && next.from === filters.from && next.to === filters.to) refresh();
           setFilters(next); setPage(0); setSelected([]);
         }}
-        onReset={() => { setDraft(emptyFilters); setFilters(emptyFilters); setPage(0); setSelected([]); }} />
+        onReset={() => { setDateError(null); setDraft(emptyFilters); setFilters(emptyFilters); setPage(0); setSelected([]); }}>
+        <div className="flex flex-wrap items-center gap-2">
+          {([
+            ["전체 기간", undefined, undefined],
+            ["오늘", today, today],
+            ["최근 7일", weekStart, today],
+          ] as const).map(([label, from, to]) => {
+            const selected = (filters.from ?? "") === (from ?? "") && (filters.to ?? "") === (to ?? "");
+            return <button key={label} type="button" aria-pressed={selected} onClick={() => {
+              setDateError(null);
+              const next = withoutDates({ ...draft, status: filters.status }, draft.search.trim(), from, to);
+              setDraft(next);
+              setFilters(next);
+              setPage(0);
+              setSelected([]);
+            }} className={`h-11 rounded-xl border px-3 text-sm font-semibold ${selected ? "border-emerald-700 bg-emerald-50 text-emerald-800" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}>{label}</button>;
+          })}
+          <input type="date" aria-label="시작일" value={draft.from ?? ""} onChange={event => setDraft({ ...draft, from: event.target.value || undefined })}
+            className="h-11 rounded-xl border border-zinc-200 px-3 text-sm text-zinc-700" />
+          <input type="date" aria-label="종료일" value={draft.to ?? ""} onChange={event => setDraft({ ...draft, to: event.target.value || undefined })}
+            className="h-11 rounded-xl border border-zinc-200 px-3 text-sm text-zinc-700" />
+        </div>
+      </SearchFilterBar>
+      {dateError && <p role="alert" className="text-sm text-rose-700">{dateError}</p>}
       <OrderStatusTabs status={filters.status} counts={counts.data}
         onChange={status => { setFilters(value => ({ ...value, status })); setPage(0); setSelected([]); }} />
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
@@ -147,7 +197,7 @@ export function OrderManagement() {
               <td className="whitespace-nowrap px-4 py-4">{cancellationTab
                 ? <button type="button" onClick={() => setCancellationOrderId(order.orderId)} aria-label={`주문 ${order.orderId} 취소 상세`}
                     className="rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-emerald-600">취소 상세</button>
-                : hasPermission(session.data, "ORDER_MANAGE")
+                : canManageOrders
                   ? <CancelOrderButton order={order} memberId={session.data!.id} admin compact />
                   : <span className="text-xs text-zinc-400">권한 없음</span>}</td>
               <td className="whitespace-nowrap px-4 py-4 text-xs">{new Date(order.createdAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</td>

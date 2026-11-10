@@ -181,7 +181,8 @@ test('GET order accepts AbortSignal and uses the authenticated member query key'
 });
 
 test('result UI renders saved item snapshots, delivery and order-created rather than paid status',async()=>{
-  const {OrderDetails}=await import(moduleUrl('../src/entities/order/ui/order-details.tsx',{'react/jsx-runtime':import.meta.resolve('react/jsx-runtime')}));
+  const deadlineUrl=moduleUrl('../src/entities/order/ui/payment-deadline.tsx',{react:import.meta.resolve('react'),'react/jsx-runtime':import.meta.resolve('react/jsx-runtime')});
+  const {OrderDetails}=await import(moduleUrl('../src/entities/order/ui/order-details.tsx',{'react/jsx-runtime':import.meta.resolve('react/jsx-runtime'),'./payment-deadline':deadlineUrl}));
   const html=renderToStaticMarkup(React.createElement(OrderDetails,{order:{...order,items:[{...order.items[0],productId:null}]}}));
   for(const pattern of [/주문 상세/,/주문 접수/,/결제 전/,/주문 당시 상품/,/수령인/,/4,200원/])assert.match(html,pattern);
 });

@@ -7,7 +7,7 @@ const source = readFileSync(new URL('../src/entities/session/model/admin-access.
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 });
-const { adminMenus, canAccessAdmin, accessibleAdminMenus, hasPermission, canManageAdminResource } = await import(
+const { adminMenus, canAccessAdmin, canAccessDeliveryAdmin, accessibleAdminMenus, hasPermission, canManageAdminResource } = await import(
   `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
 );
 const member = (permissions, role = 'MEMBER') => ({ permissions, roles: [{ code: role }] });
@@ -24,6 +24,13 @@ test('retired menu permissions do not grant admin entry', () => {
   const viewer = member(['MENU_PRODUCT_ACCESS', 'MENU_MEMBER_ACCESS', 'MENU_ROLE_ACCESS', 'MENU_PERMISSION_ACCESS']);
   assert.equal(canAccessAdmin(viewer), false);
   assert.deepEqual(accessibleAdminMenus(viewer), []);
+});
+
+test('a delivery driver sees only delivery management', () => {
+  const driver = member(['MENU_ADMIN_ACCESS', 'DELIVERY_HANDLE'], 'DELIVERY_DRIVER');
+  assert.equal(canAccessAdmin(driver), false);
+  assert.equal(canAccessDeliveryAdmin(driver), true);
+  assert.deepEqual(accessibleAdminMenus(driver).map(menu => menu.id), ['deliveries']);
 });
 
 test('ADMIN and function permissions do not bypass menu permissions', () => {
@@ -80,6 +87,15 @@ test('sidebar renders four named groups, the payment link and only one selected 
   assert.ok(!html.includes('/admin?tab=payments'));
   assert.match(html, /상품 관리/);
   assert.match(html, />5<\/span>/);
+  const driverHtml = renderToStaticMarkup(React.createElement(AdminNavigation, {
+    activeTab: 'deliveries',
+    menus: accessibleAdminMenus(member(['DELIVERY_HANDLE'], 'DELIVERY_DRIVER')),
+  }));
+  assert.match(driverHtml, /배송 관리/);
+  assert.equal(driverHtml.includes('상품 관리'), false);
+  assert.equal(driverHtml.includes('주문 관리'), false);
+  assert.equal(driverHtml.includes('회원 관리'), false);
+  assert.equal(driverHtml.includes('권한 관리'), false);
 });
 const {default: AdminPage} = await loadModule('../src/app/admin/page.tsx', {
   'react/jsx-runtime': import.meta.resolve('react/jsx-runtime'),

@@ -33,6 +33,7 @@ public class CartService {
         // 담기 처리 중 상품이 삭제되거나 가격이 바뀌지 않도록 상품 행도 잠근다.
         var product = products.findByIdForCart(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+        if (!product.isForSale()) throw new BusinessException(ErrorCode.PRODUCT_NOT_FOR_SALE);
         var existing = items.findByMemberIdAndProductId(memberId, productId);
         if (existing.isPresent()) {
             existing.get().increaseQuantity(quantity);

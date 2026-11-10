@@ -7,7 +7,7 @@ import { AdminNavigation } from "./admin-navigation";
 import type { Product, ProductInput } from "@/entities/product/model/product";
 import { useImagePreview } from "@/entities/image/model/use-image-preview";
 import { canAccessAdmin, hasPermission } from "@/entities/session";
-import { currentMember, deleteProduct, listProducts } from "@/lib/api";
+import { currentMember, deleteProduct, listAdminProducts, setProductSale } from "@/lib/api";
 import { useSaveProduct } from "@/features/product-registration/model/use-save-product";
 import { ProductEditorForm } from "./product-editor-form";
 import { ProductManagementList } from "./product-management-list";
@@ -20,7 +20,7 @@ export function ProductManagement() {
   const session = useQuery({ queryKey: ["me"], queryFn: currentMember, refetchInterval: 15_000, refetchOnWindowFocus: true });
   const canView = canAccessAdmin(session.data);
   const canManage = hasPermission(session.data, "PRODUCT_MANAGE");
-  const products = useQuery({ queryKey: ["products"], queryFn: listProducts, enabled: canView });
+  const products = useQuery({ queryKey: ["admin-products"], queryFn: listAdminProducts, enabled: canView });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ProductInput>(emptyForm);
   const [message, setMessage] = useState<{ text: string; isError?: boolean } | null>(null);
@@ -45,11 +45,22 @@ export function ProductManagement() {
     onSuccess: async (_, id) => {
       if (editingId === id) clearForm();
       setMessage({ text: "상품이 삭제되었습니다." });
+      await queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       await queryClient.invalidateQueries({ queryKey: ["products"] });
     },
     onError: (error) => setMessage({ text: error.message, isError: true }),
   });
-  const busy = saving.isPending || removal.isPending;
+  const sale = useMutation({
+    retry: false,
+    mutationFn: ({ id, forSale }: { id: number; forSale: boolean }) => setProductSale(id, forSale),
+    onSuccess: async (product) => {
+      setMessage({ text: product.forSale === false ? "판매를 중지했습니다. 재고는 그대로입니다." : "판매를 다시 시작했습니다." });
+      await queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (error) => setMessage({ text: error.message, isError: true }),
+  });
+  const busy = saving.isPending || removal.isPending || sale.isPending;
 
   function revealEditor() {
     if (window.matchMedia("(max-width: 1279px)").matches) editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -106,6 +117,9 @@ export function ProductManagement() {
             selectedId={editingId} onSelect={editProduct} selectionLabel="선택하여 수정" controls="product-editor"
             selectionDisabled={!canManage || busy} onRetry={() => void products.refetch()}
             renderActions={(product) => <>
+              <button type="button" disabled={!canManage || busy} onClick={() => sale.mutate({ id: product.id, forSale: product.forSale === false })}
+                className="inline-flex min-h-8 items-center rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-40">
+                {product.forSale === false ? "판매 재개" : "판매 중지"}</button>
               <button type="button" disabled={!canManage || busy} onClick={() => editProduct(product)}
                 aria-label={`${product.name} 수정`} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-40">
                 <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m16 3 5 5M4 20l4-1L21 6a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" /></svg>

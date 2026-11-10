@@ -31,6 +31,11 @@ test('admin order API sends pagination, optional status, encoded search and abor
   assert.equal(query.get('search'), '구매자_%&');
   assert.equal(query.get('status'), 'CREATED');
   assert.equal(query.get('page'), '2');
+  await getAdminOrders({ page: 0, size: 10, search: '', status: 'PAID', from: '2026-11-04', to: '2026-11-10' });
+  const dated = new URL(api.calls.at(-1).path, 'http://localhost').searchParams;
+  assert.equal(dated.get('from'), '2026-11-04');
+  assert.equal(dated.get('to'), '2026-11-10');
+  assert.equal(dated.get('status'), 'PAID');
   await getAdminOrder(153, signal);
   assert.equal(api.calls.at(-1).path, '/api/admin/orders/153');
   assert.equal(api.calls.at(-1).signal, signal);
@@ -47,7 +52,7 @@ const imports = {
   '@/features/cancel-order/ui/bulk-cancel-dialog': url('export const BulkCancelDialog=()=>null;export const BulkCancelResultDialog=()=>null'),
   '@/entities/order/api/get-admin-orders': ordersUrl,
   '@/entities/order/ui/order-status-tabs': moduleUrl('../src/entities/order/ui/order-status-tabs.tsx',common),
-  '@/entities/order/ui/order-details': moduleUrl('../src/entities/order/ui/order-details.tsx', common),
+  '@/entities/order/ui/order-details': moduleUrl('../src/entities/order/ui/order-details.tsx', { ...common, './payment-deadline': moduleUrl('../src/entities/order/ui/payment-deadline.tsx', common) }),
   '@/components/admin/admin-cancellation-dialog': url('export const AdminCancellationDialog=()=>null'),
   '@/components/admin/admin-navigation': url('export const AdminNavigation=()=>null'),
   '@/components/ui/badge': moduleUrl('../src/components/ui/badge.tsx', common),
@@ -145,7 +150,16 @@ test('list shows delivery status and cancel only for preparing paid orders',()=>
   assert.ok(checkbox(unpaid, 153).includes('disabled'));
   assert.ok(checkbox(viewerList, 153).includes('disabled'));
   assert.ok(preparing.includes('aria-label="현재 페이지에서 취소 가능한 주문 선택"'));
+  assert.ok(preparing.includes('>오늘</button>'));
+  assert.ok(preparing.includes('>최근 7일</button>'));
+  assert.ok(preparing.includes('aria-label="시작일"'));
   assert.ok(!preparing.includes('>선택 취소</button>'));
+  assert.ok(!preparing.includes('>배송 시작</button>'));
+  assert.ok(!preparing.includes('>전달 완료</button>'));
+  const pending = render(OrderManagement, manager, listKey, page([{...row, status:'PAID', cancellationPending:true, deliveryStatus:'PREPARING'}])).html;
+  assert.ok(checkbox(pending, 153).includes('disabled'));
+  assert.ok(!shipped.includes('>전달 완료</button>'));
+  assert.ok(!shipped.includes('>배송 시작</button>'));
 });
 
 function checkbox(html, id) {
@@ -216,4 +230,8 @@ test('admin counts preserve active search and use all three status totals across
  const signal=new AbortController().signal;
  assert.deepEqual(await getAdminOrderCounts('검색어 &',signal),{CREATED:4,PAID:25,CANCELLED:3,CANCELLABLE:2,ALL:32});
  for(const request of api.calls){const p=new URL(request.path,'http://localhost').searchParams;assert.equal(p.get('search'),'검색어 &');assert.equal(p.get('size'),'1');assert.equal(request.signal,signal);}
+ api.calls.length=0;
+ await getAdminOrderCounts('',signal,{from:'2026-11-10',to:'2026-11-10'});
+ assert.equal(api.calls.length,4);
+ for(const request of api.calls){const p=new URL(request.path,'http://localhost').searchParams;assert.equal(p.get('from'),'2026-11-10');assert.equal(p.get('to'),'2026-11-10');}
 });

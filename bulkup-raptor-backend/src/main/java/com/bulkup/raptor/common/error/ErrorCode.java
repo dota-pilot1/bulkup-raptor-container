@@ -28,6 +28,7 @@ public enum ErrorCode {
     ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "관리자만 회원 역할을 변경할 수 있습니다."),
     SELF_ROLE_CHANGE(HttpStatus.CONFLICT, "자신의 관리자 역할은 변경할 수 없습니다."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."),
+    PRODUCT_NOT_FOR_SALE(HttpStatus.CONFLICT, "판매 중지된 상품은 구매할 수 없습니다."),
     ORDER_STOCK_INSUFFICIENT(HttpStatus.CONFLICT, "주문 상품의 판매 가능 수량이 부족합니다."),
     STOCK_INSUFFICIENT(HttpStatus.CONFLICT, "현재 재고보다 많이 줄일 수 없습니다."),
     STOCK_QUANTITY_OUT_OF_RANGE(HttpStatus.CONFLICT, "재고 수량이 허용 범위를 넘습니다."),

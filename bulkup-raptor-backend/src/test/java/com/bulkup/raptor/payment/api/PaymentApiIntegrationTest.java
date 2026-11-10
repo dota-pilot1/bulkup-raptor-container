@@ -98,6 +98,12 @@ class PaymentApiIntegrationTest {
         assertThat(paymentCount()).isEqualTo(1);
         assertThat(payments.findById(created.get("paymentId").asText()).orElseThrow().getStatus().name()).isEqualTo("READY");
         assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo("CREATED");
+        var deadline = created.get("reservationExpiresAt").asText();
+        var detail = body(get(client, "/api/orders/" + orderId), 200);
+        assertThat(detail.get("reservationExpiresAt").asText()).isEqualTo(deadline);
+        var listed = body(get(client, "/api/orders?status=CREATED"), 200).get("content").get(0);
+        assertThat(listed.get("orderId").asLong()).isEqualTo(orderId);
+        assertThat(listed.get("reservationExpiresAt").asText()).isEqualTo(deadline);
     }
 
     @Test
@@ -189,6 +195,7 @@ class PaymentApiIntegrationTest {
         assertThat(body(prepare(client, orderId), 200).get("inventoryStatus").asText()).isEqualTo("CONFIRMED");
         assertThat(paymentCount()).isEqualTo(1);
         assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo("PAID");
+        assertThat(body(get(client, "/api/orders/" + orderId), 200).get("reservationExpiresAt").isNull()).isTrue();
     }
 
     long order(Member member, boolean multiple) {
@@ -228,6 +235,11 @@ class PaymentApiIntegrationTest {
                         json.writeValueAsString(Map.of("email", member.getEmail(), "password", password)))).build();
         body(http.send(request, HttpResponse.BodyHandlers.ofString()), 200);
         return http;
+    }
+
+    HttpResponse<String> get(HttpClient client, String path) throws Exception {
+        return client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+                .timeout(Duration.ofSeconds(25)).GET().build(), HttpResponse.BodyHandlers.ofString());
     }
 
     HttpResponse<String> prepare(HttpClient client, long order) throws Exception {

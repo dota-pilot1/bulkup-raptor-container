@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { canAccessAdmin, hasPermission } from "@/entities/session";
-import { currentMember, listProducts } from "@/lib/api";
+import { currentMember, listAdminProducts } from "@/lib/api";
 import type { Product } from "@/entities/product/model/product";
 import { AdminNavigation } from "./admin-navigation";
 import { ProductManagementList } from "./product-management-list";
@@ -13,7 +13,7 @@ import { InventoryDetail } from "./inventory-detail";
 export function InventoryManagement() {
   const session = useQuery({ queryKey: ["me"], queryFn: currentMember, refetchInterval: 15_000, refetchOnWindowFocus: true });
   const allowed = canAccessAdmin(session.data);
-  const products = useQuery({ queryKey: ["products"], queryFn: listProducts, enabled: allowed });
+  const products = useQuery({ queryKey: ["admin-products"], queryFn: listAdminProducts, enabled: allowed });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [historyVersions, setHistoryVersions] = useState<Record<number, number>>({});
   const detailRef = useRef<HTMLElement>(null);
@@ -49,7 +49,7 @@ export function InventoryManagement() {
       <div className="grid items-start gap-5 xl:grid-cols-2">
         <ProductManagementList title="재고 목록" products={products.data ?? []} isPending={products.isPending} isError={products.isError}
           selectedId={selectedId} onSelect={selectProduct} selectionLabel="재고 조회" controls="inventory-detail"
-          showPrice={false} onRetry={() => void products.refetch()} />
+          showPrice={false} showStockNeedFilter onRetry={() => void products.refetch()} />
         <aside ref={detailRef} aria-label="재고 상세 및 변경 이력" className="min-w-0 scroll-mt-24 space-y-5 xl:sticky xl:top-24">
           <section id="inventory-detail" aria-label="재고 상세" className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs">
             {selectedId === null || !session.data

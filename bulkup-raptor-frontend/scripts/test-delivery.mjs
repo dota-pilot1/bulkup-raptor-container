@@ -22,7 +22,7 @@ const apiUrl = moduleUrl('../src/entities/delivery/api/deliveries.ts', { zod: im
 const api = await import(apiUrl);
 const info = { deliveryId: 7, orderId: 51, status: 'PREPARING', version: 0, recipientName: '배송 수령인', phone: '01012345678', postalCode: '12345', address: '수령 주소', addressDetail: '지정 장소', centerName: null, pickupLocation: null, scheduledAt: null, createdAt: '2026-11-08T09:00:00Z', startedAt: null, deliveredAt: null, items: [{ productName: '주문 간식', quantity: 2 }] };
 const admin = { delivery: info, history: [] };
-const summary = (({ phone, postalCode, address, addressDetail, centerName, pickupLocation, scheduledAt, ...rest }) => rest)(info);
+const summary = (({ centerName, pickupLocation, scheduledAt, ...rest }) => rest)(info);
 const pageData = { content: [summary], page: 0, size: 10, totalPages: 1, totalElements: 1 };
 const history = [{ id: 1, fromStatus: 'PREPARING', toStatus: 'OUT_FOR_DELIVERY', actorId: 4, reason: '내부 전달 메모', createdAt: '2026-11-08T09:30:00Z' }];
 async function withFetch(fn) {
@@ -48,6 +48,13 @@ test('status change sends the read version, trims the note and validates the res
   assert.deepEqual(JSON.parse(call.init.body), { status: 'OUT_FOR_DELIVERY', expectedVersion: 0, reason: '전달 메모' });
   await api.changeDeliveryStatus(7, 'OUT_FOR_DELIVERY', 0, '  ');
   assert.equal(JSON.parse(call.init.body).reason, null);
+}));
+test('bulk advance sends order ids and the requested next status', () => withFetch(async () => {
+  let call;
+  globalThis.fetch = async (path, init) => { call = { path: new URL(path), init }; return new Response(JSON.stringify({ results: [{ orderId: 51, succeeded: true, deliveryStatus: 'DELIVERED' }] })); };
+  await api.startDeliveries([51], 'DELIVERED');
+  assert.equal(call.path.pathname, '/api/admin/deliveries/starts');
+  assert.deepEqual(JSON.parse(call.init.body), { orderIds: [51], status: 'DELIVERED' });
 }));
 test('API rejects foreign IDs, unexpected states and malformed versions', () => withFetch(async () => {
   globalThis.fetch = async () => new Response(JSON.stringify({ delivery: { ...info, deliveryId: 8 }, history: [] }));
@@ -204,6 +211,7 @@ test('read-only admins see detail but no write form; shipping operators see the 
   assert.ok(renderDetail({ ...member, permissions: ['MENU_ADMIN_ACCESS'] }, admin).includes('조회만 가능합니다'));
   assert.ok(!renderDetail({ ...member, permissions: ['MENU_ADMIN_ACCESS'] }, admin).includes('배송 시작</button>'));
   assert.ok(renderDetail(member, admin).includes('배송 시작</button>'));
+  assert.ok(renderDetail({ ...member, permissions: ['MENU_ADMIN_ACCESS', 'DELIVERY_HANDLE'] }, admin).includes('배송 시작</button>'));
   assert.ok(renderDetail(member, { delivery: { ...info, status: 'OUT_FOR_DELIVERY', version: 1 }, history }).includes('전달 완료 처리</button>'));
   const delivered = renderDetail(member, { delivery: { ...info, status: 'DELIVERED', version: 2 }, history });
   assert.ok(delivered.includes('직원에게 전달이 완료'));
@@ -214,7 +222,7 @@ test('detail from a previous account is never rendered after account change', ()
   assert.ok(!html.includes('수령 주소')); assert.ok(!html.includes('배송 수령인'));
 });
 const linkUrl = url(`import React from ${JSON.stringify(import.meta.resolve('react'))};export default function Link({children,...props}){return React.createElement('a',props,children)}`);
-const { OrderHistory } = await import(moduleUrl('../src/entities/order/ui/order-history.tsx', { ...common, 'next/link': linkUrl }));
+const { OrderHistory } = await import(moduleUrl('../src/entities/order/ui/order-history.tsx', { ...common, 'next/link': linkUrl, './payment-deadline': moduleUrl('../src/entities/order/ui/payment-deadline.tsx', common) }));
 test('paid order cards expose a separate delivery slot without nesting a button inside a link', () => {
   const orders = ['PAID', 'CREATED', 'CANCELLED'].map((status, index) => ({ orderId: index + 1, status, createdAt: info.createdAt, totalAmount: 1000, items: info.items }));
   const html = renderToStaticMarkup(React.createElement(OrderHistory, { orders, renderDelivery: order => React.createElement('button', { type: 'button' }, `배송 조회 ${order.orderId}`) }));
@@ -230,4 +238,53 @@ test('delivery shows latest handler name and keeps per-change names internal', (
   const internalHtml = renderToStaticMarkup(React.createElement(DeliveryDetails, { ...props, internal: true }));
   assert.ok(internalHtml.includes('처리자 이전처리자'));
   assert.ok(renderToStaticMarkup(React.createElement(DeliveryDetails, { delivery: info, history: [] })).includes('미배정'));
+});
+const deliveryListUrl = moduleUrl('../src/components/admin/delivery-management.tsx', {
+  ...common,
+  '@/lib/api': libUrl,
+  '@/entities/session': sessionUrl,
+  '@/components/admin/admin-navigation': url('export const AdminNavigation=()=>null'),
+  '@/components/admin/admin-delivery-detail': url('export const AdminDeliveryDetail=()=>null'),
+  '@/components/ui/select': url('export const Select=()=>null'),
+  '@/components/ui/search-filter-bar': url('export const SearchFilterBar=()=>null'),
+  '@/entities/delivery/api/deliveries': url('export async function startDeliveries(){return {results:[]}}'),
+  '@/entities/delivery/model/use-deliveries': url('export function useAdminDeliveries(){return globalThis.__deliveryQuery} export function useDeliveryCounts(){return {isPending:false,isError:false,isFetching:false,data:{PREPARING:2,OUT_FOR_DELIVERY:1,DELIVERED:0},refetch(){}}}'),
+  '@/entities/delivery/model/delivery-types': modelUrl,
+  '@/entities/delivery/ui/delivery-details': detailsUrl,
+  '@/features/change-delivery-status/ui/start-delivery-dialog': url('export const StartDeliveryDialog=()=>null;export const StartDeliveryResultDialog=()=>null'),
+});
+const { DeliveryManagement } = await import(deliveryListUrl);
+function renderDeliveryList(viewer) {
+  const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, staleTime: Infinity, retry: false } } });
+  client.setQueryData(['me'], viewer);
+  return renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(DeliveryManagement))).replaceAll('<!-- -->', '');
+}
+test('delivery list advances only the next step and leaves pending or finished rows alone', () => {
+  const row = (orderId, status, extra = {}) => ({ deliveryId: orderId, orderId, status, version: 0, recipientName: '수령인', phone: '01011112222', postalCode: '12345', address: `${status} 주소`, addressDetail: '101호', createdAt: info.createdAt, startedAt: null, deliveredAt: null, items: info.items, ...extra });
+  globalThis.__deliveryQuery = { isPending: false, isError: false, isFetching: false, refetch() {}, data: { content: [row(1960, 'PREPARING'), row(1962, 'PREPARING', { cancellationPending: true }), row(51, 'OUT_FOR_DELIVERY'), row(850, 'DELIVERED')], page: 0, size: 10, totalPages: 1, totalElements: 4 } };
+  const html = renderDeliveryList(member);
+  assert.ok(html.includes('>배송 시작</button>'));
+  assert.ok(html.includes('>전달 완료</button>'));
+  assert.ok(html.includes('주문 1960 배송 상세'));
+  const box = id => html.match(new RegExp(`<input[^>]*aria-label="주문 ${id} 배송 선택"[^>]*>`))?.[0] ?? '';
+  assert.ok(box(1960) && !box(1960).includes('disabled'));
+  assert.ok(box(1962).includes('disabled'));
+  assert.ok(box(51) && !box(51).includes('disabled'));
+  assert.ok(box(850).includes('disabled'));
+  const driver = renderDeliveryList({ ...member, permissions: ['MENU_ADMIN_ACCESS', 'DELIVERY_HANDLE'] });
+  assert.ok(driver.includes('>배송 시작</button>'));
+  assert.ok(driver.includes('>전달 완료</button>'));
+  const reader = renderDeliveryList({ ...member, permissions: ['MENU_ADMIN_ACCESS'] });
+  assert.ok(!reader.includes('>배송 시작</button>'));
+  assert.ok(!reader.includes('>전달 완료</button>'));
+  assert.ok(reader.includes('disabled'));
+  assert.ok(html.includes('>같은 주소</p>'));
+  assert.ok(html.includes('PREPARING 주소'));
+  assert.ok(html.includes('OUT_FOR_DELIVERY 주소'));
+  assert.ok(html.includes('href="tel:01011112222"'));
+  assert.ok(!html.includes('DELIVERED 주소'));
+  globalThis.__deliveryQuery = { ...globalThis.__deliveryQuery, data: { content: [row(1, 'PREPARING', { address: '첫번째 주소' }), row(2, 'PREPARING', { address: '두번째 주소' })], page: 0, size: 10, totalPages: 1, totalElements: 2 } };
+  const alone = renderDeliveryList(member);
+  assert.ok(!alone.includes('>같은 주소</p>'));
+  assert.ok(alone.includes('같은 주소끼리 붙여 표시합니다'));
 });

@@ -14,6 +14,13 @@ import org.springframework.web.bind.annotation.*;
 public class AdminDeliveryController {
     private final DeliveryService service;
 
+    @PostMapping("/starts")
+    public StartDeliveriesResponse start(@AuthenticationPrincipal Long actorId,
+            @Valid @RequestBody StartDeliveriesRequest request) {
+        var target = request.status() == null ? DeliveryStatus.OUT_FOR_DELIVERY : request.status();
+        return new StartDeliveriesResponse(service.startSelected(actorId, request.orderIds(), target));
+    }
+
     @GetMapping
     public DeliveryResponses.Page list(@RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
